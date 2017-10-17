@@ -31,7 +31,7 @@ void ellipse_tracking::get_ellipse(
 
   //Color based threshold
   inRange(img,Scalar(low_rgb[2], low_rgb[1], low_rgb[0]), Scalar(high_rgb[2], high_rgb[1], high_rgb[0]), img_th);
-
+cout << "After inrange!" << endl;
   if( disp_debug ) {
     imshow( "inRange", img_th );
     waitKey(1);
@@ -67,18 +67,21 @@ void ellipse_tracking::get_ellipse(
   }
 
   if( ellipse_candidate_c != -1 ) {
+    if( contours[ellipse_candidate_c].size() > 4) {
+      minEllipse = fitEllipse( Mat(contours[ellipse_candidate_c]) );
+      center = minEllipse.center;
+      ellips = contours[ellipse_candidate_c];
 
-    minEllipse = fitEllipse( Mat(contours[ellipse_candidate_c]) );
-    center = minEllipse.center;
-    ellips = contours[ellipse_candidate_c];
-
-    if( disp_output ) {
-      Scalar color = Scalar( 0, 0, 255 );
-      ellipse( img, minEllipse, color, 2, 8 );
-      circle( img, minEllipse.center, 2, color, 2, 8 );
-      imshow("output", img);
-      waitKey(1);
-
+      if( disp_output ) {
+        Scalar color = Scalar( 0, 0, 255 );
+        ellipse( img, minEllipse, color, 2, 8 );
+        circle( img, minEllipse.center, 2, color, 2, 8 );
+        imshow("output", img);
+        waitKey(1);
+      }
+    }
+    else {
+      cout << "[Warning] Less than 5 points in the found ellipse" << endl;
     }
   }
 

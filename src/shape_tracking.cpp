@@ -14,6 +14,7 @@ int high_b=100;
 
 void Dilation( int, void* ) {}
 
+
 void on_low_r_thresh_trackbar(int, void *) {
     low_r = min(high_r-1, low_r);
     setTrackbarPos("Low R","RGB", low_r);
@@ -142,15 +143,19 @@ void shape_tracking::tune_dilation() {
   }
   cout << "_img_ready: " << _img_ready << endl;
 
-  /*
-  namedWindow( "Dilation", CV_WINDOW_AUTOSIZE );
-  createTrackbar( "Element:\n 0: Rect \n 1: Cross \n 2: Ellipse", "Dilation Demo",
-                    &dilation_elem, max_elem, Dilation );
 
-    createTrackbar( "Kernel size:\n 2n +1", "Dilation",
-                  &dilation_size, max_kernel_size, Dilation );
-  Dilation( 0, 0 );
-  */
+  namedWindow( "Dilation", CV_WINDOW_AUTOSIZE );
+/*
+
+  /// Create Dilation Trackbar
+    createTrackbar( "Element:\n 0: Rect \n 1: Cross \n 2: Ellipse", "Dilation Demo",
+                    &dilation_elem, max_elem,
+                    Dilation );
+
+    createTrackbar( "Kernel size:\n 2n +1", "Dilation Demo",
+                    &dilation_size, max_kernel_size,
+                    Dilation );
+*/
   ros::Rate r(_rate);
 
   while(ros::ok()) {
@@ -209,14 +214,22 @@ void shape_tracking::track_ellipses() {
   high_rgb[2] = _high_b;
 
   vector<Point> outer_ellipse;
+  vector<Point> inner_ellipse;
   Point ellipse_center;
+  Point inner_ellipse_center;
   std_msgs::Empty emp;
   vector<vector<Point> > contours;
+
+  int ellipse_min_c[2];
+  int ellipse_max_c[2];
+  ellipse_min_c[0] = ellipse_min_c[1] = 1000;
+  ellipse_max_c[0] = ellipse_max_c[1] = -1000;
 
   while(ros::ok()) {
 
     img = _src;
     outer_ellipse.clear();
+    inner_ellipse.clear();
     contours.clear();
 
     //---Get first ellipse
@@ -224,14 +237,45 @@ void shape_tracking::track_ellipses() {
     etrack->get_ellipse(cropedImage, _to_blur, low_rgb, high_rgb,
       _dilation_elem, _dilation_size, false, false, outer_ellipse, ellipse_center);
 
+    /*
     contours.push_back( outer_ellipse );
     Scalar color = Scalar( 0, 0, 255 );
     drawContours( cropedImage, contours, 0, color, 2, 8 );
     circle( cropedImage, ellipse_center, 2, color, 2, 8 );
     imshow( "img", cropedImage );
+    */
     //---
 
     //---Get second ellipse
+    for(int pts=0; pts<outer_ellipse.size(); pts++ ) {
+      ellipse_min_c[0] = (ellipse_min_c[0] > outer_ellipse[pts].x ) ? outer_ellipse[pts].x : ellipse_min_c[0];
+      ellipse_min_c[1] = (ellipse_min_c[1] > outer_ellipse[pts].y ) ? outer_ellipse[pts].y : ellipse_min_c[1];
+      ellipse_max_c[0] = (ellipse_max_c[0] < outer_ellipse[pts].x ) ? outer_ellipse[pts].x : ellipse_max_c[0];
+      ellipse_max_c[1] = (ellipse_max_c[1] < outer_ellipse[pts].y ) ? outer_ellipse[pts].y : ellipse_max_c[1];
+    }
+    Mat ellipse_roi = cropedImage(Rect( ellipse_min_c[0]-_roi_off_x, ellipse_min_c[1]-_roi_off_y, (ellipse_max_c[0]-ellipse_min_c[0])+_roi_off_x*2, (ellipse_max_c[1]-ellipse_min_c[1])+_roi_off_y*2) );
+
+
+    cvtColor( ellipse_roi, ellipse_roi, CV_BGR2GRAY );
+
+    threshold( ellipse_roi, ellipse_roi, 220, 255, 1 );
+    imshow( "ellipse_roi", ellipse_roi );
+
+    //ellipse_roi = Scalar::all(255) - ellipse_roi;
+    //imshow( "ellipse_roi", ellipse_roi );
+
+//    etrack->get_ellipse(ellipse_roi, _to_blur, low_rgb, high_rgb,
+//      _dilation_elem, _dilation_size, true, false, outer_ellipse, inner_ellipse_center);
+
+
+
+//---Temp work only on roi!!!
+
+//cvtColor( ellipse_roi, ellipse_roi, CV_BGR2GRAY );
+//threshold( ellipse_roi, ellipse_roi, 220, 255, 1 );
+//cv::imshow("ellipse_roi", ellipse_roi);
+
+
     //---
 
     waitKey(1);
