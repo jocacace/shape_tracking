@@ -18,6 +18,7 @@ class shape_tracking {
     void track_ellipses();
     void tune_rgb_gain();
     void tune_dilation();
+    void set_roi();
   private:
     ros::NodeHandle _nh;
     ros::Subscriber _img_sub;
@@ -28,15 +29,19 @@ class shape_tracking {
 
     //---Params
     string _img_topic;
-    int _off_x;void Dilation( int, void* ) {}
-
+    int _off_x;
     int _off_y;
+    int _rect_w;
+    int _rect_h;
+
     int _rate;
     bool _show_img_contounrs;
     bool _to_blur;
     bool _show_img_elaboration;
     bool _set_dilation;
     bool _set_RGB;
+    bool _set_th;
+    bool _set_roi;
     int _low_r;
     int _low_g;
     int _low_b;
@@ -45,7 +50,7 @@ class shape_tracking {
     int _high_b;
     int _dilation_elem;
     int _dilation_size;
-
+    int _th;
     int _roi_off_x;
     int _roi_off_y;
     //---
@@ -64,4 +69,3 @@ void on_low_g_thresh_trackbar(int, void *);
 void on_high_g_thresh_trackbar(int, void *);
 void on_low_b_thresh_trackbar(int, void *);
 void on_high_b_thresh_trackbar(int, void *);
-void Dilation( int, void* );
