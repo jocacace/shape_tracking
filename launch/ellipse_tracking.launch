@@ -6,8 +6,11 @@
     <param name="rate" type="int" value="50" />
     <param name="img_left_topic" type="string" value="/rodyman/left_camera/image_raw/rep" />
 
-    <param name="off_x" type="int" value="480" />
+    <param name="set_roi" type="bool" value="false" />
+    <param name="off_x" type="int" value="409" />
     <param name="off_y" type="int" value="80" />
+    <param name="rect_w" type="int" value="460" />
+    <param name="rect_h" type="int" value="380" />
     <param name="to_blur" type="bool" value="false" />
 
     <!--Display output-->
@@ -17,8 +20,9 @@
     <!--In range parameters-->
     <param name="set_RGB" type="bool" value="false" />
     <param name="low_r" type="int" value="0" />
-    <param name="high_r" type="int" value="16" />
-    <param name="low_g" type="int" value="12" />
+    <param name="high_r" type="int" value="30" />
+    <param name="low_g" type="int" value="50" />
+
     <param name="high_g" type="int" value="255" />
     <param name="low_b" type="int" value="0" />
     <param name="high_b" type="int" value="255" />
@@ -32,7 +36,10 @@
     <param name="roi_off_x" type="int" value="0" />
     <param name="roi_off_y" type="int" value="0" />
 
-    <param name="show_image_elaboration" type="bool" value="false" />
+    <param name="set_th" type="bool" value="false" />
+    <param name="th" type="int" value="240" />
+
+    <param name="show_image_elaboration" type="bool" value="true" />
 
   </node>
 

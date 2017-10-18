@@ -10,9 +10,28 @@ int low_b=30;
 int high_r=100;
 int high_g=100;
 int high_b=100;
+int bin_th = 0;
+int roi_x = 0;
+int roi_y = 0;
+int rect_h = 0;
+int rect_w = 0;
 
+void on_high_r_dilation_trackbar(int, void *) {}
 
-void Dilation( int, void* ) {}
+void on_x_trackbar(int, void *) {
+  setTrackbarPos("x","ROI", roi_x);
+}
+
+void on_y_trackbar(int, void *) {
+  setTrackbarPos("y","ROI", roi_y);
+}
+void on_rw_trackbar(int, void *) {
+  setTrackbarPos("rect_w","ROI", rect_w);
+}
+
+void on_rh_trackbar(int, void *) {
+  setTrackbarPos("rect_h","ROI", rect_h);
+}
 
 
 void on_low_r_thresh_trackbar(int, void *) {
@@ -36,8 +55,12 @@ void on_low_b_thresh_trackbar(int, void *) {
     setTrackbarPos("Low B","RGB", low_b);
 }
 void on_high_b_thresh_trackbar(int, void *) {
-    high_b = max(high_b, low_b+1);
-    setTrackbarPos("High B", "RGB", high_b);
+    high_g = max(high_g, low_g+1);
+    setTrackbarPos("High G", "RGB", high_g);
+}
+
+void on_thresh_trackbar(int, void *) {
+    setTrackbarPos("bth","Binary threshold", bin_th);
 }
 
 
@@ -76,7 +99,10 @@ shape_tracking::shape_tracking() {
   load_param( _show_img_contounrs, false, "show_img_contounrs" );
   load_param( _off_x, 480, "off_x" );
   load_param( _off_y, 80, "off_y" );
+  load_param( _rect_h, 10, "rect_h" );
+  load_param( _rect_w, 10, "rect_w" );
   load_param( _set_RGB, false, "set_RGB");
+  load_param( _set_th, false, "set_th");
   load_param( _set_dilation, false, "set_dilation");
   load_param( _show_img_elaboration, true, "show_image_elaboration");
   load_param( _low_r, 0, "low_r");
@@ -89,10 +115,14 @@ shape_tracking::shape_tracking() {
   load_param( _dilation_size, 7, "dilation_size");
   load_param( _roi_off_x, 0, "roi_off_x" );
   load_param( _roi_off_y, 0, "roi_off_y" );
+  load_param( _th, 180, "th");
+  load_param( _set_roi, false, "set_roi");
 
+  bin_th = _th;
   _img_sub = _nh.subscribe( _img_topic.c_str(), 0, &shape_tracking::cam_cb, this );
 
-  empty_pub = _nh.advertise<std_msgs::Empty>("/out", 0);
+  _c1_pub = _nh.advertise<geometry_msgs::Point>("/shape_tracking/ellipse_center", 0);
+  _c2_pub = _nh.advertise<geometry_msgs::Point>("/shape_tracking/ellipse_orientation", 0);
   etrack = new ellipse_tracking();
 }
 
@@ -145,17 +175,10 @@ void shape_tracking::tune_dilation() {
 
 
   namedWindow( "Dilation", CV_WINDOW_AUTOSIZE );
-/*
 
-  /// Create Dilation Trackbar
-    createTrackbar( "Element:\n 0: Rect \n 1: Cross \n 2: Ellipse", "Dilation Demo",
-                    &dilation_elem, max_elem,
-                    Dilation );
+  createTrackbar( "Kernel size:\n 2n +1", "Dilation",  &dilation_size, max_kernel_size, on_high_r_dilation_trackbar );
 
-    createTrackbar( "Kernel size:\n 2n +1", "Dilation Demo",
-                    &dilation_size, max_kernel_size,
-                    Dilation );
-*/
+
   ros::Rate r(_rate);
 
   while(ros::ok()) {
@@ -171,10 +194,8 @@ void shape_tracking::tune_dilation() {
     imshow( "Dilation", img );
     waitKey(1);
 
-
     img.release();
   }
-
 }
 
 
@@ -194,6 +215,47 @@ void shape_tracking::cam_cb( sensor_msgs::Image msg ) {
 	_img_ready = true;
 }
 
+void shape_tracking::set_roi() {
+  Mat img;
+  while( !_img_ready ) {
+    usleep(0.1*1e6);
+  }
+  cout << "_img_ready: " << _img_ready << endl;
+
+
+  namedWindow("ROI", CV_WINDOW_AUTOSIZE);
+  //-- Trackbars to set thresholds for RGB values
+  roi_x = _off_x;
+  roi_y = _off_y;
+  rect_h = _rect_h;
+  rect_w = _rect_w;
+
+  img = _src;
+  createTrackbar("x","ROI", &roi_x, img.cols-1, on_x_trackbar);
+  createTrackbar("y","ROI", &roi_y, img.rows-1, on_y_trackbar);
+  createTrackbar("rect_w","ROI", &rect_w, img.cols-1, on_rw_trackbar);
+  createTrackbar("rect_h","ROI", &rect_h, img.rows-1, on_rh_trackbar);
+
+  Scalar color = Scalar( 0, 0, 255 );
+
+  ros::Rate r(_rate);
+  while(ros::ok()) {
+    Mat img = _src;
+
+    _off_x = roi_x;
+    _off_y = roi_y;
+    _rect_w = rect_w;
+    _rect_h = rect_h;
+
+    Mat cropedImage = img(Rect( _off_x, _off_y, img.cols-_off_x, img.rows-_off_y));
+    rectangle(cropedImage, Point(0,0), Point(_rect_w, _rect_h),color, 2, 8 );
+
+    imshow( "ROI", cropedImage );
+    waitKey(1);
+
+    img.release();
+  }
+}
 
 void shape_tracking::track_ellipses() {
 
@@ -215,38 +277,48 @@ void shape_tracking::track_ellipses() {
 
   vector<Point> outer_ellipse;
   vector<Point> inner_ellipse;
+
+
   Point ellipse_center;
   Point inner_ellipse_center;
-  std_msgs::Empty emp;
+
   vector<vector<Point> > contours;
 
   int ellipse_min_c[2];
   int ellipse_max_c[2];
+
   ellipse_min_c[0] = ellipse_min_c[1] = 1000;
   ellipse_max_c[0] = ellipse_max_c[1] = -1000;
 
+  geometry_msgs::Point p1, p2;
+  bool invert_img = false;
+
+  if( _set_th ) {
+    namedWindow("Binary threshold", WINDOW_NORMAL);
+    createTrackbar("bth","Binary threshold", &bin_th, 255, on_thresh_trackbar );
+  }
+  vector<Point> translated_c;
+  Scalar color = Scalar( 0, 0, 255 );
+  Point original_center_e1;
+  Point original_center_e2;
+
+
   while(ros::ok()) {
 
+    ellipse_min_c[0] = ellipse_min_c[1] = 1000;
+    ellipse_max_c[0] = ellipse_max_c[1] = -1000;
     img = _src;
     outer_ellipse.clear();
     inner_ellipse.clear();
     contours.clear();
 
     //---Get first ellipse
-    Mat cropedImage = img(Rect( _off_x, _off_y, img.cols-_off_x, img.rows-_off_y));
-    etrack->get_ellipse(cropedImage, _to_blur, low_rgb, high_rgb,
-      _dilation_elem, _dilation_size, false, false, outer_ellipse, ellipse_center);
 
-    /*
-    contours.push_back( outer_ellipse );
-    Scalar color = Scalar( 0, 0, 255 );
-    drawContours( cropedImage, contours, 0, color, 2, 8 );
-    circle( cropedImage, ellipse_center, 2, color, 2, 8 );
-    imshow( "img", cropedImage );
-    */
-    //---
+    invert_img = false;
+    //Mat cropedImage = img(Rect( _off_x, _off_y, img.cols-_off_x, img.rows-_off_y));
+    Mat cropedImage = img(Rect( _off_x, _off_y, _rect_w, _rect_h));
+    etrack->get_ellipse(cropedImage, _to_blur, low_rgb, high_rgb, invert_img, _dilation_elem, _dilation_size, false, false, outer_ellipse, ellipse_center);
 
-    //---Get second ellipse
     for(int pts=0; pts<outer_ellipse.size(); pts++ ) {
       ellipse_min_c[0] = (ellipse_min_c[0] > outer_ellipse[pts].x ) ? outer_ellipse[pts].x : ellipse_min_c[0];
       ellipse_min_c[1] = (ellipse_min_c[1] > outer_ellipse[pts].y ) ? outer_ellipse[pts].y : ellipse_min_c[1];
@@ -254,33 +326,54 @@ void shape_tracking::track_ellipses() {
       ellipse_max_c[1] = (ellipse_max_c[1] < outer_ellipse[pts].y ) ? outer_ellipse[pts].y : ellipse_max_c[1];
     }
     Mat ellipse_roi = cropedImage(Rect( ellipse_min_c[0]-_roi_off_x, ellipse_min_c[1]-_roi_off_y, (ellipse_max_c[0]-ellipse_min_c[0])+_roi_off_x*2, (ellipse_max_c[1]-ellipse_min_c[1])+_roi_off_y*2) );
+    Mat ellipse_roi_tmp;
+
+    if( _set_th ) {
+      _th = bin_th;
+      cvtColor( ellipse_roi, ellipse_roi_tmp, CV_BGR2GRAY );
+      threshold( ellipse_roi_tmp, ellipse_roi_tmp, _th, 255, 1 );
+      imshow("Binary threshold",ellipse_roi_tmp);
+      waitKey(1);
+    }
+    else {
+      cvtColor( ellipse_roi, ellipse_roi_tmp, CV_BGR2GRAY );
+      threshold( ellipse_roi_tmp, ellipse_roi_tmp, _th, 255, 1 );
+      invert_img = true;
+      etrack->get_ellipse(ellipse_roi_tmp, _to_blur, invert_img, _dilation_elem, _dilation_size, false, false, inner_ellipse, inner_ellipse_center);
+    }
+    original_center_e1.x = (ellipse_center.x + _off_x  );
+    original_center_e1.y = (ellipse_center.y + _off_y  );
+    original_center_e2.x = (inner_ellipse_center.x + _off_x + ellipse_min_c[0] );
+    original_center_e2.y = (inner_ellipse_center.y + _off_y + ellipse_min_c[1] );
 
 
-    cvtColor( ellipse_roi, ellipse_roi, CV_BGR2GRAY );
+    if( _show_img_elaboration ) {
+      translated_c.clear();
+      Point conts;
+      for(int i=0; i<outer_ellipse.size(); i++) {
+        conts.x = outer_ellipse[i].x + _off_x ;
+        conts.y = outer_ellipse[i].y + _off_y;
+        translated_c.push_back(conts);
+      }
+      contours.clear();
+      contours.push_back( translated_c );
+      drawContours( img, contours, 0, color, 2, 8 );
 
-    threshold( ellipse_roi, ellipse_roi, 220, 255, 1 );
-    imshow( "ellipse_roi", ellipse_roi );
+      circle( img, original_center_e1, 2, color, 2, 8 );
 
-    //ellipse_roi = Scalar::all(255) - ellipse_roi;
-    //imshow( "ellipse_roi", ellipse_roi );
+      circle( img, original_center_e2, 2, color, 2, 8 );
+      imshow( "img", img );
+      waitKey(1);
 
-//    etrack->get_ellipse(ellipse_roi, _to_blur, low_rgb, high_rgb,
-//      _dilation_elem, _dilation_size, true, false, outer_ellipse, inner_ellipse_center);
+    }
+    p1.x = original_center_e1.x;
+    p1.y = original_center_e1.y;
+    p2.x = original_center_e2.x;
+    p2.y = original_center_e2.y;
 
-
-
-//---Temp work only on roi!!!
-
-//cvtColor( ellipse_roi, ellipse_roi, CV_BGR2GRAY );
-//threshold( ellipse_roi, ellipse_roi, 220, 255, 1 );
-//cv::imshow("ellipse_roi", ellipse_roi);
-
-
-    //---
-
-    waitKey(1);
-
-    empty_pub.publish(emp);
+    _c1_pub.publish( p1 );
+    _c2_pub.publish( p2 );
+		
     r.sleep();
   }
 
@@ -292,6 +385,8 @@ void shape_tracking::run() {
     boost::thread tune_rgb_gain_t( &shape_tracking::tune_rgb_gain, this );
   else if( _set_dilation )
     boost::thread tune_dilation_t( &shape_tracking::tune_dilation, this );
+  else if( _set_roi )
+    boost::thread tune_roi_t( &shape_tracking::set_roi, this );
   else
     boost::thread track_ellipses_t( &shape_tracking::track_ellipses, this );
 
