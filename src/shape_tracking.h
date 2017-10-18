@@ -4,7 +4,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include "boost/thread.hpp"
 
-#include <std_msgs/Empty.h>
+#include <geometry_msgs/Point.h>
 
 using namespace std;
 using namespace cv;
@@ -23,6 +23,8 @@ class shape_tracking {
     ros::NodeHandle _nh;
     ros::Subscriber _img_sub;
 
+    ros::Publisher _c1_pub;
+    ros::Publisher _c2_pub;
     //Input image
     Mat _src;
     bool _img_ready;

@@ -4,7 +4,7 @@
   <node pkg="shape_tracking" name="shape_tracking" type="shape_tracking" output="screen">
 
     <param name="rate" type="int" value="50" />
-    <param name="img_left_topic" type="string" value="/rodyman/left_camera/image_raw" />
+    <param name="img_left_topic" type="string" value="/rodyman/left_camera/image_raw/rep" />
 
     <param name="set_roi" type="bool" value="false" />
     <param name="off_x" type="int" value="409" />
@@ -38,7 +38,7 @@
     <param name="set_th" type="bool" value="false" />
     <param name="th" type="int" value="240" />
 
-    <param name="show_image_elaboration" type="bool" value="false" />
+    <param name="show_image_elaboration" type="bool" value="true" />
 
   </node>
 

@@ -15,14 +15,9 @@ int roi_x = 0;
 int roi_y = 0;
 int rect_h = 0;
 int rect_w = 0;
-//int _rect_w;
-//int _rect_h;
 
+void on_high_r_dilation_trackbar(int, void *) {}
 
-void on_high_r_dilation_trackbar(int, void *) {
-    //high_r = max(high_r, low_r+1);
-    //setTrackbarPos("High R", "RGB", high_r);
-}
 void on_x_trackbar(int, void *) {
   setTrackbarPos("x","ROI", roi_x);
 }
@@ -37,8 +32,6 @@ void on_rw_trackbar(int, void *) {
 void on_rh_trackbar(int, void *) {
   setTrackbarPos("rect_h","ROI", rect_h);
 }
-
-
 
 void on_low_r_thresh_trackbar(int, void *) {
     low_r = min(high_r-1, low_r);
@@ -66,7 +59,6 @@ void on_high_b_thresh_trackbar(int, void *) {
 }
 
 void on_thresh_trackbar(int, void *) {
-    //bin_th = max(high_b, low_b+1);
     setTrackbarPos("bth","Binary threshold", bin_th);
 }
 
@@ -128,7 +120,8 @@ shape_tracking::shape_tracking() {
   bin_th = _th;
   _img_sub = _nh.subscribe( _img_topic.c_str(), 0, &shape_tracking::cam_cb, this );
 
-  empty_pub = _nh.advertise<std_msgs::Empty>("/out", 0);
+  _c1_pub = _nh.advertise<geometry_msgs::Point>("/shape_tracking/ellipse_center", 0);
+  _c2_pub = _nh.advertise<geometry_msgs::Point>("/shape_tracking/ellipse_orientation", 0);
   etrack = new ellipse_tracking();
 }
 
@@ -286,7 +279,6 @@ void shape_tracking::track_ellipses() {
   Point ellipse_center;
   Point inner_ellipse_center;
 
-  std_msgs::Empty emp;
   vector<vector<Point> > contours;
 
   int ellipse_min_c[2];
@@ -295,6 +287,7 @@ void shape_tracking::track_ellipses() {
   ellipse_min_c[0] = ellipse_min_c[1] = 1000;
   ellipse_max_c[0] = ellipse_max_c[1] = -1000;
 
+  geometry_msgs::Point p1, p2;
   bool invert_img = false;
 
   if( _set_th ) {
@@ -342,31 +335,39 @@ void shape_tracking::track_ellipses() {
       invert_img = true;
       etrack->get_ellipse(ellipse_roi_tmp, _to_blur, invert_img, _dilation_elem, _dilation_size, false, false, inner_ellipse, inner_ellipse_center);
     }
-
-    translated_c.clear();
-    Point conts;
-
-    for(int i=0; i<outer_ellipse.size(); i++) {
-      conts.x = outer_ellipse[i].x + _off_x ;
-      conts.y = outer_ellipse[i].y + _off_y;
-      translated_c.push_back(conts);
-    }
-
-    contours.clear();
-    contours.push_back( translated_c );
-    drawContours( img, contours, 0, color, 2, 8 );
-
     original_center_e1.x = (ellipse_center.x + _off_x  );
     original_center_e1.y = (ellipse_center.y + _off_y  );
-    circle( img, original_center_e1, 2, color, 2, 8 );
-
     original_center_e2.x = (inner_ellipse_center.x + _off_x + ellipse_min_c[0] );
     original_center_e2.y = (inner_ellipse_center.y + _off_y + ellipse_min_c[1] );
-    circle( img, original_center_e2, 2, color, 2, 8 );
-    imshow( "img", img );
-    waitKey(1);
 
-    empty_pub.publish(emp);
+
+    if( _show_img_elaboration ) {
+      translated_c.clear();
+      Point conts;
+      for(int i=0; i<outer_ellipse.size(); i++) {
+        conts.x = outer_ellipse[i].x + _off_x ;
+        conts.y = outer_ellipse[i].y + _off_y;
+        translated_c.push_back(conts);
+      }
+      contours.clear();
+      contours.push_back( translated_c );
+      drawContours( img, contours, 0, color, 2, 8 );
+
+      circle( img, original_center_e1, 2, color, 2, 8 );
+
+      circle( img, original_center_e2, 2, color, 2, 8 );
+      imshow( "img", img );
+      waitKey(1);
+
+    }
+    p1.x = original_center_e1.x;
+    p1.y = original_center_e1.y;
+    p2.x = original_center_e2.x;
+    p2.y = original_center_e2.y;
+
+    _c1_pub.publish( p1 );
+    _c2_pub.publish( p2 );
+
     r.sleep();
   }
 
