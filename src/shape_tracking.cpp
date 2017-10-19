@@ -91,9 +91,8 @@ void load_param( bool & p, bool def, string name ) {
 
 shape_tracking::shape_tracking() {
 
-  _img_ready = false;
-
-  load_param( _img_topic, "/rodyman/left_camera/image_raw/rep", "img_left_topic" );
+  load_param( _img_topic_l, "/rodyman/left_camera/image_raw/rep", "img_left_topic" );
+  load_param( _img_topic_r, "/rodyman/right_camera/image_raw/rep", "img_right_topic" );
   load_param( _rate, 50, "rate" );
   load_param( _to_blur, false, "to_blur");
   load_param( _show_img_contounrs, false, "show_img_contounrs" );
@@ -117,21 +116,30 @@ shape_tracking::shape_tracking() {
   load_param( _roi_off_y, 0, "roi_off_y" );
   load_param( _th, 180, "th");
   load_param( _set_roi, false, "set_roi");
+  load_param( _task, "sphere_tracking", "task");
+  load_param( _stereo_cam, false, "stereo_cam");
 
   bin_th = _th;
-  _img_sub = _nh.subscribe( _img_topic.c_str(), 0, &shape_tracking::cam_cb, this );
+  _img_sub_l = _nh.subscribe( _img_topic_l.c_str(), 0, &shape_tracking::cam_cb_l, this );
+  if( _stereo_cam )
+    _img_sub_r = _nh.subscribe( _img_topic_r.c_str(), 0, &shape_tracking::cam_cb_r, this );
 
   _c1_pub = _nh.advertise<geometry_msgs::Point>("/shape_tracking/ellipse_center", 0);
   _c2_pub = _nh.advertise<geometry_msgs::Point>("/shape_tracking/ellipse_orientation", 0);
-  etrack = new ellipse_tracking();
+
+  _img_l_ready = false;
+  _img_r_ready = false;
+
+  if( _task == "ellipse_tracking")
+    etrack = new ellipse_tracking();
 }
 
 void shape_tracking::tune_rgb_gain() {
   Mat img;
-  while( !_img_ready ) {
+  while( !_img_l_ready ) {
     usleep(0.1*1e6);
   }
-  cout << "_img_ready: " << _img_ready << endl;
+  cout << "_img_l_ready: " << _img_l_ready << endl;
 
   low_r = _low_r;
   low_g = _low_g;
@@ -153,7 +161,7 @@ void shape_tracking::tune_rgb_gain() {
   ros::Rate r(_rate);
 
   while(ros::ok()) {
-    Mat img = _src;
+    Mat img = _src_l;
 
 
     inRange(img,Scalar(low_b, low_g, low_r), Scalar(high_b, high_g, high_r), img);
@@ -168,10 +176,10 @@ void shape_tracking::tune_rgb_gain() {
 
 void shape_tracking::tune_dilation() {
   Mat img;
-  while( !_img_ready ) {
+  while( !_img_l_ready ) {
     usleep(0.1*1e6);
   }
-  cout << "_img_ready: " << _img_ready << endl;
+  cout << "_img_l_ready: " << _img_l_ready << endl;
 
 
   namedWindow( "Dilation", CV_WINDOW_AUTOSIZE );
@@ -182,7 +190,7 @@ void shape_tracking::tune_dilation() {
   ros::Rate r(_rate);
 
   while(ros::ok()) {
-    Mat img = _src;
+    Mat img = _src_l;
     _dilation_size = dilation_size;
     Mat element = getStructuringElement( _dilation_elem,
       Size( 2*_dilation_size + 1, 2*_dilation_size+1 ),
@@ -200,7 +208,7 @@ void shape_tracking::tune_dilation() {
 
 
 
-void shape_tracking::cam_cb( sensor_msgs::Image msg ) {
+void shape_tracking::cam_cb_l( sensor_msgs::Image msg ) {
 
 	cv_bridge::CvImagePtr cv_ptr;
 	try {
@@ -211,16 +219,33 @@ void shape_tracking::cam_cb( sensor_msgs::Image msg ) {
 		return;
 	}
 
-	_src = cv_ptr->image;
-	_img_ready = true;
+	_src_l = cv_ptr->image;
+	_img_l_ready = true;
 }
+
+
+void shape_tracking::cam_cb_r( sensor_msgs::Image msg ) {
+
+	cv_bridge::CvImagePtr cv_ptr;
+	try {
+		cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
+	}
+	catch (cv_bridge::Exception& e) {
+		ROS_ERROR("cv_bridge exception: %s", e.what());
+		return;
+	}
+
+	_src_r = cv_ptr->image;
+	_img_r_ready = true;
+}
+
 
 void shape_tracking::set_roi() {
   Mat img;
-  while( !_img_ready ) {
+  while( !_img_l_ready ) {
     usleep(0.1*1e6);
   }
-  cout << "_img_ready: " << _img_ready << endl;
+  cout << "_img_l_ready: " << _img_l_ready << endl;
 
 
   namedWindow("ROI", CV_WINDOW_AUTOSIZE);
@@ -230,7 +255,7 @@ void shape_tracking::set_roi() {
   rect_h = _rect_h;
   rect_w = _rect_w;
 
-  img = _src;
+  img = _src_l;
   createTrackbar("x","ROI", &roi_x, img.cols-1, on_x_trackbar);
   createTrackbar("y","ROI", &roi_y, img.rows-1, on_y_trackbar);
   createTrackbar("rect_w","ROI", &rect_w, img.cols-1, on_rw_trackbar);
@@ -240,7 +265,7 @@ void shape_tracking::set_roi() {
 
   ros::Rate r(_rate);
   while(ros::ok()) {
-    Mat img = _src;
+    Mat img = _src_l;
 
     _off_x = roi_x;
     _off_y = roi_y;
@@ -260,10 +285,10 @@ void shape_tracking::set_roi() {
 void shape_tracking::track_ellipses() {
 
   Mat img;
-	while( !_img_ready ) {
+	while( !_img_l_ready ) {
 		usleep(0.1*1e6);
 	}
-	cout << "_img_ready: " << _img_ready << endl;
+	cout << "_img_l_ready: " << _img_l_ready << endl;
 
   ros::Rate r(_rate);
 
@@ -307,7 +332,7 @@ void shape_tracking::track_ellipses() {
 
     ellipse_min_c[0] = ellipse_min_c[1] = 1000;
     ellipse_max_c[0] = ellipse_max_c[1] = -1000;
-    img = _src;
+    img = _src_l;
     outer_ellipse.clear();
     inner_ellipse.clear();
     contours.clear();
@@ -373,9 +398,133 @@ void shape_tracking::track_ellipses() {
 
     _c1_pub.publish( p1 );
     _c2_pub.publish( p2 );
-		
+
     r.sleep();
   }
+
+}
+
+void shape_tracking::track_sphere() {
+
+  while( !_img_l_ready || !_img_r_ready )
+    usleep(0.1*1e6);
+  ROS_INFO("Image left and right ready!");
+
+  ros::Rate r(_rate);
+
+  Mat img_l;
+
+
+  int edgeThresh = 1;
+  int lowThreshold = 20;
+  int max_lowThreshold = 100;
+  int ratio = 8;
+  int kernel_size = 3;
+  int thresh = 100;
+  int max_thresh = 255;
+
+  Mat src, src_gray;
+  Mat dst, detected_edges;
+  Mat hsv_space;
+  Mat canny_output;
+  while( ros::ok() ) {
+    vector<vector<Point> > contours;
+vector<Vec4i> hierarchy;
+
+    img_l = _src_l;
+    Mat cropedImage = img_l(Rect( _off_x, _off_y, _rect_w, _rect_h));
+    img_l = cropedImage;
+    /*
+    Mat cropedImage = img_l(Rect( _off_x, _off_y, _rect_w, _rect_h));
+    cvtColor( cropedImage, hsv_space, CV_BGR2HSV );
+    imshow( "cropedImage", hsv_space );
+    waitKey(1);
+    */
+    /// Convert it to gray
+
+    cvtColor( img_l, img_l, CV_BGR2GRAY );
+    img_l = Scalar::all(255) - img_l;
+    threshold( img_l, img_l, _th, 255, 1 );
+
+      /// Detect edges using canny
+    Canny( img_l, canny_output, thresh, thresh*2, 3 );
+    /// Find contours
+    findContours( canny_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
+
+    /// Draw contours
+    Mat drawing = Mat::zeros( canny_output.size(), CV_8UC3 );
+    for( int i = 0; i< contours.size(); i++ )
+     {
+       Scalar color = Scalar( 0, 0, 255 );
+       drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
+     }
+
+
+
+    imshow( "Hough Circle Transform Demo", drawing );
+    waitKey(1);
+    /*
+    /// Reduce noise with a kernel 3x3
+
+    cvtColor( cropedImage, cropedImage, CV_BGR2GRAY );
+    GaussianBlur( cropedImage, detected_edges, Size(3, 3), 2, 2 );
+    //blur( img_l, detected_edges, Size(3,3) );
+
+    vector<Vec3f> circles;
+
+    /// Canny detector
+    Canny( detected_edges, detected_edges, lowThreshold, lowThreshold*ratio, kernel_size );
+    //HoughCircles( detected_edges, circles, CV_HOUGH_GRADIENT, 1, img_l.rows/8, 1, 80, 0, 0 );
+    HoughCircles( detected_edges, circles, CV_HOUGH_GRADIENT, 1, 30, 200, 50, 0, 0 );
+    /// Using Canny's output as a mask, we display our result
+
+    imshow( "window_name", detected_edges );
+
+    cout << "Found: " << circles.size() << endl;
+    for( size_t i = 0; i < circles.size(); i++ )
+    {
+        Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+        int radius = cvRound(circles[i][2]);
+        // circle center
+        circle( img_l, center, 3, Scalar(0,255,0), -1, 8, 0 );
+        // circle outline
+        circle( img_l, center, radius, Scalar(0,0,255), 3, 8, 0 );
+     }
+
+
+    //imshow( "window_name", img_l );
+    waitKey(1);
+
+    /// Reduce the noise so we avoid false circle detection
+    //GaussianBlur( img_l, img_l, Size(9, 9), 2, 2 );
+    /*
+
+    /// Apply the Hough Transform to find the circles
+
+    HoughCircles( img_l, circles, CV_HOUGH_GRADIENT, 1, img_l.rows/8, 30, 100, 0, 0 );
+
+    /// Draw the circles detected
+    cout << "Found: " << circles.size() << endl;
+    for( size_t i = 0; i < circles.size(); i++ )
+    {
+        Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+        int radius = cvRound(circles[i][2]);
+        // circle center
+        circle( img_l, center, 3, Scalar(0,255,0), -1, 8, 0 );
+        // circle outline
+        circle( img_l, center, radius, Scalar(0,0,255), 3, 8, 0 );
+     }
+
+    /// Show your results
+    namedWindow( "Hough Circle Transform Demo", CV_WINDOW_AUTOSIZE );
+    imshow( "Hough Circle Transform Demo", img_l );
+
+    waitKey(1);
+    */
+    r.sleep();
+  }
+
+
 
 }
 
@@ -387,8 +536,10 @@ void shape_tracking::run() {
     boost::thread tune_dilation_t( &shape_tracking::tune_dilation, this );
   else if( _set_roi )
     boost::thread tune_roi_t( &shape_tracking::set_roi, this );
-  else
+  else if( _task == "ellipse_tracking")
     boost::thread track_ellipses_t( &shape_tracking::track_ellipses, this );
+  else if( _task == "sphere_tracking")
+    boost::thread track_ellipses_t( &shape_tracking::track_sphere, this );
 
   ros::spin();
 }

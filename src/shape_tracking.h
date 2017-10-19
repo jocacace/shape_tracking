@@ -12,25 +12,34 @@ using namespace cv;
 class shape_tracking {
 
   public:
+
     shape_tracking();
     void run();
-    void cam_cb( sensor_msgs::Image imgl );
+    void cam_cb_l( sensor_msgs::Image imgl );
+    void cam_cb_r( sensor_msgs::Image imgr );
     void track_ellipses();
     void tune_rgb_gain();
     void tune_dilation();
     void set_roi();
+    void track_sphere();
+
   private:
+
     ros::NodeHandle _nh;
-    ros::Subscriber _img_sub;
+    ros::Subscriber _img_sub_l;
+    ros::Subscriber _img_sub_r;
 
     ros::Publisher _c1_pub;
     ros::Publisher _c2_pub;
     //Input image
-    Mat _src;
-    bool _img_ready;
+    Mat _src_l;
+    Mat _src_r;
+    bool _img_l_ready;
+    bool _img_r_ready;
 
     //---Params
-    string _img_topic;
+    string _img_topic_l;
+    string _img_topic_r;
     int _off_x;
     int _off_y;
     int _rect_w;
@@ -44,6 +53,7 @@ class shape_tracking {
     bool _set_RGB;
     bool _set_th;
     bool _set_roi;
+    bool _stereo_cam;
     int _low_r;
     int _low_g;
     int _low_b;
@@ -55,6 +65,7 @@ class shape_tracking {
     int _th;
     int _roi_off_x;
     int _roi_off_y;
+    string _task;
     //---
 
     ellipse_tracking *etrack;
@@ -71,4 +82,3 @@ void on_low_g_thresh_trackbar(int, void *);
 void on_high_g_thresh_trackbar(int, void *);
 void on_low_b_thresh_trackbar(int, void *);
 void on_high_b_thresh_trackbar(int, void *);
-
