@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(shape_tracking)
 
 add_compile_options(-std=c++11)
-
+find_package(VISP REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   image_transport
@@ -22,6 +22,7 @@ catkin_package(
 
 SET ( TRACKING_SRC
   tracking/ellipse_tracking.cpp
+  tracking/sphere_stereo_tracking.cpp
 )
 
 include_directories(
@@ -30,4 +31,4 @@ include_directories(
 )
 
 add_executable(shape_tracking src/shape_tracking.cpp ${TRACKING_SRC})
-target_link_libraries(shape_tracking ${catkin_LIBRARIES} )
+target_link_libraries(shape_tracking ${catkin_LIBRARIES} ${VISP_LIBRARIES})

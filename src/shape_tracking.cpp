@@ -366,6 +366,9 @@ void shape_tracking::track_ellipses() {
       invert_img = true;
       etrack->get_ellipse(ellipse_roi_tmp, _to_blur, invert_img, _dilation_elem, _dilation_size, false, false, inner_ellipse, inner_ellipse_center);
     }
+
+
+     
     original_center_e1.x = (ellipse_center.x + _off_x  );
     original_center_e1.y = (ellipse_center.y + _off_y  );
     original_center_e2.x = (inner_ellipse_center.x + _off_x + ellipse_min_c[0] );
@@ -412,115 +415,25 @@ void shape_tracking::track_sphere() {
 
   ros::Rate r(_rate);
 
+  vpHomogeneousMatrix cMo;
+
   Mat img_l;
+  sphere_stero_tracking sst;
+  cv::Mat left, right;
+  left = cv::Mat::zeros(_src_l.size(), CV_8UC3);
+  right = cv::Mat::zeros(_src_r.size(), CV_8UC3);
+
+  left = _src_l;
+  right = _src_r;
+  sst.init("",left,right);
+
+  while(ros::ok()) {
+    left = _src_l;
+    right = _src_r;
+
+    sst.track(left,right,cMo);
 
 
-  int edgeThresh = 1;
-  int lowThreshold = 20;
-  int max_lowThreshold = 100;
-  int ratio = 8;
-  int kernel_size = 3;
-  int thresh = 100;
-  int max_thresh = 255;
-
-  Mat src, src_gray;
-  Mat dst, detected_edges;
-  Mat hsv_space;
-  Mat canny_output;
-  while( ros::ok() ) {
-    vector<vector<Point> > contours;
-vector<Vec4i> hierarchy;
-
-    img_l = _src_l;
-    Mat cropedImage = img_l(Rect( _off_x, _off_y, _rect_w, _rect_h));
-    img_l = cropedImage;
-    /*
-    Mat cropedImage = img_l(Rect( _off_x, _off_y, _rect_w, _rect_h));
-    cvtColor( cropedImage, hsv_space, CV_BGR2HSV );
-    imshow( "cropedImage", hsv_space );
-    waitKey(1);
-    */
-    /// Convert it to gray
-
-    cvtColor( img_l, img_l, CV_BGR2GRAY );
-    img_l = Scalar::all(255) - img_l;
-    threshold( img_l, img_l, _th, 255, 1 );
-
-      /// Detect edges using canny
-    Canny( img_l, canny_output, thresh, thresh*2, 3 );
-    /// Find contours
-    findContours( canny_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
-
-    /// Draw contours
-    Mat drawing = Mat::zeros( canny_output.size(), CV_8UC3 );
-    for( int i = 0; i< contours.size(); i++ )
-     {
-       Scalar color = Scalar( 0, 0, 255 );
-       drawContours( drawing, contours, i, color, 2, 8, hierarchy, 0, Point() );
-     }
-
-
-
-    imshow( "Hough Circle Transform Demo", drawing );
-    waitKey(1);
-    /*
-    /// Reduce noise with a kernel 3x3
-
-    cvtColor( cropedImage, cropedImage, CV_BGR2GRAY );
-    GaussianBlur( cropedImage, detected_edges, Size(3, 3), 2, 2 );
-    //blur( img_l, detected_edges, Size(3,3) );
-
-    vector<Vec3f> circles;
-
-    /// Canny detector
-    Canny( detected_edges, detected_edges, lowThreshold, lowThreshold*ratio, kernel_size );
-    //HoughCircles( detected_edges, circles, CV_HOUGH_GRADIENT, 1, img_l.rows/8, 1, 80, 0, 0 );
-    HoughCircles( detected_edges, circles, CV_HOUGH_GRADIENT, 1, 30, 200, 50, 0, 0 );
-    /// Using Canny's output as a mask, we display our result
-
-    imshow( "window_name", detected_edges );
-
-    cout << "Found: " << circles.size() << endl;
-    for( size_t i = 0; i < circles.size(); i++ )
-    {
-        Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-        int radius = cvRound(circles[i][2]);
-        // circle center
-        circle( img_l, center, 3, Scalar(0,255,0), -1, 8, 0 );
-        // circle outline
-        circle( img_l, center, radius, Scalar(0,0,255), 3, 8, 0 );
-     }
-
-
-    //imshow( "window_name", img_l );
-    waitKey(1);
-
-    /// Reduce the noise so we avoid false circle detection
-    //GaussianBlur( img_l, img_l, Size(9, 9), 2, 2 );
-    /*
-
-    /// Apply the Hough Transform to find the circles
-
-    HoughCircles( img_l, circles, CV_HOUGH_GRADIENT, 1, img_l.rows/8, 30, 100, 0, 0 );
-
-    /// Draw the circles detected
-    cout << "Found: " << circles.size() << endl;
-    for( size_t i = 0; i < circles.size(); i++ )
-    {
-        Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
-        int radius = cvRound(circles[i][2]);
-        // circle center
-        circle( img_l, center, 3, Scalar(0,255,0), -1, 8, 0 );
-        // circle outline
-        circle( img_l, center, radius, Scalar(0,0,255), 3, 8, 0 );
-     }
-
-    /// Show your results
-    namedWindow( "Hough Circle Transform Demo", CV_WINDOW_AUTOSIZE );
-    imshow( "Hough Circle Transform Demo", img_l );
-
-    waitKey(1);
-    */
     r.sleep();
   }
 

@@ -1,10 +1,12 @@
 #include "ros/ros.h"
-#include "ellipse_tracking.h"
 #include <sensor_msgs/Image.h>
 #include <cv_bridge/cv_bridge.h>
 #include "boost/thread.hpp"
-
 #include <geometry_msgs/Point.h>
+
+#include "ellipse_tracking.h"
+#include "sphere_stereo_tracking.h"
+
 
 using namespace std;
 using namespace cv;
