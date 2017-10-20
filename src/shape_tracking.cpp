@@ -368,7 +368,7 @@ void shape_tracking::track_ellipses() {
     }
 
 
-     
+
     original_center_e1.x = (ellipse_center.x + _off_x  );
     original_center_e1.y = (ellipse_center.y + _off_y  );
     original_center_e2.x = (inner_ellipse_center.x + _off_x + ellipse_min_c[0] );
@@ -431,7 +431,12 @@ void shape_tracking::track_sphere() {
     left = _src_l;
     right = _src_r;
 
-    sst.track(left,right,cMo);
+
+    //Mat cleft = left(Rect( _off_x, _off_y, _rect_w, _rect_h));
+    //Mat cright = right(Rect( _off_x, _off_y, _rect_w, _rect_h));
+
+
+    sst.track(left, right,cMo);
 
 
     r.sleep();

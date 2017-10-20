@@ -41,8 +41,7 @@ vpMeEllipse2::updateList()
 }
 
 void
-vpMeEllipse2::initTrackingCircle(vpImage<unsigned char> &I)
-{
+vpMeEllipse2::initTrackingCircle(vpImage<unsigned char> &I) {
 
   const unsigned int n=5 ;
   vpImagePoint iP[n];
@@ -90,49 +89,100 @@ sphere_stero_tracking::sphere_stero_tracking() {
   isLost = false;
 }
 
+
+void sphere_stero_tracking::load_conf() {
+  //TMP! hardcoded!
+  vpCameraParameters cameraLeft( 743.0730868231319, 741.3507300477314, 512.0658141069166, 256.0660499493296);
+  cam1 = cameraLeft;
+
+  vpCameraParameters cameraRight( 743.7026312116332, 741.8680387429362,534.1757633664125, 245.9841950877609 );
+  cam2 = cameraRight;
+
+  me1.sample_step = 2;
+  me1.ntotal_sample = 3000;
+  me1.setMaskSize(5);
+  me1.setMaskNumber(180);
+  me1.range = 5;
+  me1.mu1 = 0.5;
+  me1.mu2 = 0.5;
+  me1.threshold = 40000;
+
+  dp = 1;
+  //min_dist =
+  param_1 = 120;
+  param_2 = 40;
+  min_radius = 5;
+  max_radius = 100;
+
+  Kleft = Mat(cam1.get_K().getRows(), cam1.get_K().getRows(), cv::DataType<double>::type);
+  Kleftinv = Mat( cam1.get_K_inverse().getRows(), cam1.get_K_inverse().getRows(), cv::DataType<double>::type);
+
+  Kleft = Mat(cam2.get_K().getRows(), cam2.get_K().getRows(), cv::DataType<double>::type);
+  Kleftinv = Mat( cam2.get_K_inverse().getRows(), cam2.get_K_inverse().getRows(), cv::DataType<double>::type);
+
+  for (int k = 0; k < Kleft.rows; k++)
+    for (int l = 0; l < Kleft.cols; l++) {
+      Kleft.at<double>(k, l) = cam1.get_K()[k][l];
+      Kleftinv.at<double>(k, l) = cam1.get_K_inverse()[k][l];
+      Kright.at<double>(k, l) = cam2.get_K()[k][l];
+      Krightinv.at<double>(k, l) = cam2.get_K_inverse()[k][l];
+    }
+
+    distcoeff1 = cv::Mat(1,4,cv::DataType<double>::type);
+    distcoeff1.at<double>(0,0) = -0.1339858023201154;
+    distcoeff1.at<double>(0,1) = 0.1507880965066347;
+    distcoeff1.at<double>(0,2) = -0.00456996529265559;
+    distcoeff1.at<double>(0,3) = 0.0009810721446667698;
+
+    distcoeff2 = cv::Mat(1,4,cv::DataType<double>::type);
+    distcoeff2.at<double>(0,0) = -0.1420526347764651;
+    distcoeff2.at<double>(0,1) = 0.1660345338305312;
+    distcoeff2.at<double>(0,2) = -0.003983095275512944;
+    distcoeff2.at<double>(0,3) = 0.002559983330240779;
+
+    c2Mc1[0][0] = 0.9997656194949723;
+    c2Mc1[1][0] = -0.0192813567040456;
+    c2Mc1[2][0] = 0.009845575629974224;
+
+    c2Mc1[0][1] = 0.01924301738740872;
+    c2Mc1[1][1] = 0.9998069378888094;
+    c2Mc1[2][1] = 0.003974069857265075;
+
+    c2Mc1[0][2] = -0.009920300280841923;
+    c2Mc1[1][2] = -0.003783679829728314;
+    c2Mc1[2][2] = 0.9999436341160856;
+
+    c2Mc1[0][3] = -0.1478065127138684;
+    c2Mc1[1][3] = 0.001063827926624086;
+    c2Mc1[2][3] = -0.004848910650938509;
+}
+
+
+
 void sphere_stero_tracking::init(const std::string &filename, cv::Mat &left, cv::Mat &right) {
+
+  load_conf();
 
   vpImageConvert::convert(left, Irgbleft);
   vpImageConvert::convert(right, Irgbright);
 
-  Ileft.quarterSizeImage(Ileftsmall);
-	Iright.quarterSizeImage(Irightsmall);
-
   lcinit = left.clone();
   rcinit = right.clone();
 
-  foreground_left = left;
-  foreground_right = right;
-
-
   vpImageConvert::convert(Irgbleft, Ileft);
-  vpImageConvert::convert(foreground_left, Isegleft);
-  Ibinleft.resize(Ileft.getHeight(), Ileft.getWidth());
+  vpImageConvert::convert(Irgbright, Iright);
 
   Ileft.quarterSizeImage(Ileftsmall);
-
-
-  for (int i = 0; i < Ileft.getHeight(); i++)
-  for (int j = 0; j < Ileft.getWidth(); j++)
-  if (Isegleft[i][j].A > 0)
-  Ibinleft[i][j] = 255;
-  else  Ibinleft[i][j] = 0;
-
-  vpImageConvert::convert(Irgbright, Iright);
-  vpImageConvert::convert(foreground_right, Isegright);
-  Ibinright.resize(Iright.getHeight(), Iright.getWidth());
-
-  //Irightsmall.resize(Ileft.getHeight()/4, Ileft.getWidth()/4);
   Iright.quarterSizeImage(Irightsmall);
 
-  //displayLeft.init(Ileftsmall, 100, 100,"Display") ;
-  //vpDisplay::display(Ileftsmall) ;
-  //vpDisplay::flush(Ileftsmall) ;
-/*
- 	displayRight.init(Irightsmall, 100, 100,"Display...") ;
-  vpDisplay::display(Irightsmall);
-  vpDisplay::flush(Irightsmall);
-*/
+  vpPoint p1;
+  p1.setWorldCoordinates(0,0,0);
+  radius = 0.0425;
+  /*
+  tracker.setStereoCameraParameters(cam1,cam2,c2Mc1);
+  tracker.setMovingEdgeStereo(me1,me1);
+  tracker.addSphereStereo(p1, radius);
+  */
 
   Eleft.setMe(&me1) ;
   Eleft.setCircle(true) ;
@@ -156,29 +206,11 @@ void sphere_stero_tracking::init(const std::string &filename, cv::Mat &left, cv:
   rectangleright.width = width - 2 * rectangleright.x;
   rectangleright.height = height - 2 * rectangleright.y;
 
-
   Eleft.setMe(&me1) ;
   Eleft.setDisplay(vpMeSite::RANGE_RESULT) ;
 
   Eright.setMe(&me2) ;
   Eright.setDisplay(vpMeSite::RANGE_RESULT) ;
-
-
-  /**********ADDDD init
-
-  else //if (otype == SPHERE)
-	{
-	vpPoint p1;
-	p1.setWorldCoordinates(0,0,0);
-	radius = 0.0425;
-	tracker.setStereoCameraParameters(cam1,cam2,c2Mc1);
-	tracker.setMovingEdgeStereo(me1,me1);
-	tracker.addSphereStereo(p1, radius);
-
-	initFile = "/home/apetit/soft/ballTracking/src/ball/ball.init";
-	}
-
-  ****************/
 
   iter00 = 0;
 
@@ -186,16 +218,14 @@ void sphere_stero_tracking::init(const std::string &filename, cv::Mat &left, cv:
              0, 1, 0, 0,
              0, 0, 1, 0);
 
-  Matx34d P20(c2Mc1[0][0],	c2Mc1[0][1], c2Mc1[0][2], c2Mc1[0][3],
-  c2Mc1[1][0],	c2Mc1[1][1], c2Mc1[1][2], c2Mc1[1][3],
-  c2Mc1[2][0],	c2Mc1[2][1], c2Mc1[2][2], c2Mc1[2][3]);
+  Matx34d P20(c2Mc1[0][0],    c2Mc1[0][1], c2Mc1[0][2], c2Mc1[0][3],
+              c2Mc1[1][0],    c2Mc1[1][1], c2Mc1[1][2], c2Mc1[1][3],
+              c2Mc1[2][0],    c2Mc1[2][1], c2Mc1[2][2], c2Mc1[2][3]);
 
   P = P0;
   P2 = P20;
 
-  param_1 = 120;
-  param_2 = 60;
-  dp = 1;
+
 }
 
 
@@ -293,34 +323,67 @@ void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, vpHomogeneousM
   gapRect = 100;
   gapCenter = 120;
 
-  if ( circlesLeft.size() > 0 ) {
-
+  if (circlesLeft.size() > 0 ) {
     for( size_t i = 0; i < circlesLeft.size(); i++ ) {
- 				if (flag0 || isLost) {
-   				Eleft.iPc0 = Eleft.iPc;
-   				Eleft.iPc.set_u(cvRound(circlesLeft[i][0]) + rectangleleft.x);
-   				Eleft.iPc.set_v(cvRound(circlesLeft[i][1]) + rectangleleft.y);
-   				Eleft.a = cvRound(circlesLeft[i][2]);
-   				Eleft.b = cvRound(circlesLeft[i][2]);
-   				Eleft.updateList();
- 				}
-        else {
- 				     if (sqrt(pow(cvRound(circlesLeft[i][0])+ rectangleleft.x -Eleft.iPc.get_u(), 2) + pow(cvRound(circlesLeft[i][1]) + rectangleleft.y -Eleft.iPc.get_v(), 2))<gapRect
- 				        && cvRound(circlesLeft[i][2])- Eleft.getA() < gapCenter )	{
- 				             Eleft.iPc0 = Eleft.iPc;
- 				             Eleft.iPc.set_u(cvRound(circlesLeft[i][0]) + rectangleleft.x);
- 				             Eleft.iPc.set_v(cvRound(circlesLeft[i][1]) + rectangleleft.y);
- 				             Eleft.a = cvRound(circlesLeft[i][2]);
- 				             Eleft.b = cvRound(circlesLeft[i][2]);
- 				             Eleft.updateList();
-                   }
-          }
-        }
-        flagLeft = false;
-
+      if (flag0 || isLost) {
+        Eleft.iPc0 = Eleft.iPc;
+        Eleft.iPc.set_u(cvRound(circlesLeft[i][0]) + rectangleleft.x);
+        Eleft.iPc.set_v(cvRound(circlesLeft[i][1]) + rectangleleft.y);
+        Eleft.a = cvRound(circlesLeft[i][2]);
+        Eleft.b = cvRound(circlesLeft[i][2]);
+        Eleft.updateList();
       }
+      else {
+        if (sqrt(pow(cvRound(circlesLeft[i][0])+ rectangleleft.x -Eleft.iPc.get_u(), 2) + pow(cvRound(circlesLeft[i][1]) + rectangleleft.y -Eleft.iPc.get_v(), 2))<gapRect && cvRound(circlesLeft[i][2])- Eleft.getA() < gapCenter) {
+          Eleft.iPc0 = Eleft.iPc;
+          Eleft.iPc.set_u(cvRound(circlesLeft[i][0]) + rectangleleft.x);
+          Eleft.iPc.set_v(cvRound(circlesLeft[i][1]) + rectangleleft.y);
+          Eleft.a = cvRound(circlesLeft[i][2]);
+          Eleft.b = cvRound(circlesLeft[i][2]);
+          Eleft.updateList();
+        }
+      }
+    }
+    flagLeft = false;
+  }
 
-
+  if (circlesRight.size() > 0 ) {
+    for( size_t i = 0; i < circlesRight.size(); i++ ) {
+      if (flag0 || isLost) {
+        Eright.iPc0 = Eright.iPc;
+        Eright.iPc.set_u(cvRound(circlesRight[i][0]) + rectangleright.x);
+        Eright.iPc.set_v(cvRound(circlesRight[i][1]) + rectangleright.y);
+        Eright.a = cvRound(circlesRight[i][2]);
+        Eright.b = cvRound(circlesRight[i][2]);
+        Eleft.updateList();
+      }
+      else {
+        if (sqrt(pow(cvRound(circlesRight[i][0])+ rectangleright.x -Eright.iPc.get_u(), 2) + pow(cvRound(circlesRight[i][1]) + rectangleright.y -Eright.iPc.get_v(), 2))<gapRect && cvRound(circlesRight[i][2])- Eright.getA() < gapCenter) {
+          Eright.iPc0 = Eleft.iPc;
+          Eright.iPc.set_u(cvRound(circlesRight[i][0]) + rectangleright.x);
+          Eright.iPc.set_v(cvRound(circlesRight[i][1]) + rectangleright.y);
+          Eright.a = cvRound(circlesRight[i][2]);
+          Eright.b = cvRound(circlesRight[i][2]);
+          Eright.updateList();
+        }
+      }
+    }
+    flagRight = false;
+  }
+/*
+  if (!flagLeft && !flagRight && flag0) {
+    if (!use_gray) {
+      Eleft.initTrackingCircle(Ibinleft);
+      Eright.initTrackingCircle(Ibinright);
+    }
+    else {
+      Eleft.initTrackingCircle(Ileft);
+      Eright.initTrackingCircle(Iright);
+    }
+    flagLeft = true;
+    flag0 = false;
+  }
+*/
 
 
   imshow( "lg1", lgcrop );

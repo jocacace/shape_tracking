@@ -40,8 +40,8 @@
 
 
 		<param name="task" type="string" value="sphere_tracking" />
-    <param name="img_left_topic" type="string" value="/rodyman/left_camera/image_raw/rep" />
-    <param name="img_right_topic" type="string" value="/rodyman/right_camera/image_raw/rep" />
+    <param name="img_left_topic" type="string" value="/rodyman/left_camera/image_raw" />
+    <param name="img_right_topic" type="string" value="/rodyman/right_camera/image_raw" />
     <param name="stereo_cam" type="bool" value="true" />
     <param name="th" type="int" value="180" />
 

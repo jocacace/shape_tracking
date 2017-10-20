@@ -42,6 +42,9 @@
 #include <math.h>
 #include <list>
 
+#include <visp/vpMe.h>
+#include <visp/vpPoint.h>
+
 
 using namespace std;
 using namespace cv;
@@ -72,12 +75,13 @@ public:
   void init(const std::string &filename, cv::Mat &left, cv::Mat &right);
   void track( cv::Mat &left, cv::Mat &right, vpHomogeneousMatrix &cMo_);
   void extractCircles(cv::Mat &src, vector<Vec3f> &circles_);
+  void load_conf();
 
 private:
 
     //! Vector of scale level to use for the multi-scale tracking.
     std::vector<bool> _scales;
-    //! Pyramid of image associated to the current image. This pyramid is computed in the init() and in the track() methods.
+    //! Pyramid of image associated to the current image. Thcis pyramid is computed in the init() and in the track() methods.
     std::vector< const vpImage<unsigned char>* > Ipyramid, Ipyramid1, Ipyramid2;
 
     vpImage<vpRGBa> Ileft, Iright;
@@ -86,13 +90,14 @@ private:
     vpDisplayX displayLeft, displayRight, displayBinLeft, displayBinRight, displayRGBLeft, displayRGBRight ;
     vpMeEllipse2 Eleft,Eright;
     cv::Rect rectangleleft, rectangleright, rectangleleftInit, rectanglerightInit;
-    vpMe me1,me2;
+
     Matx34d P,P1,P2;
     int iter00;
     vpHomogeneousMatrix c2Mc1,c1Mc2, cMo2;
     cv::Mat lcinit, rcinit;
     cv::Mat foreground_left;
     cv::Mat foreground_right;
+
 
     double param_1; // 200: Upper threshold for the internal Canny edge detector
     double param_2; // 200: Upper threshold for the internal Canny edge detector
@@ -101,4 +106,14 @@ private:
     double dp ;//= 1  The inverse ratio of resolution
     bool flagLeft, flagRight, flagMbt, flag0;
     bool isLost;
+
+    vpCameraParameters cam1, cam2;
+    vpMe me1, me2;
+
+    cv::Mat Kleft, Kleftinv;
+    cv::Mat Kright, Krightinv;
+
+    cv::Mat distcoeff1, distcoeff2;
+    double radius;
+
 };
