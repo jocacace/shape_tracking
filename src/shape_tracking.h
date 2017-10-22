@@ -7,9 +7,11 @@
 #include "ellipse_tracking.h"
 #include "sphere_stereo_tracking.h"
 
+#include "TooN/TooN.h"
 
 using namespace std;
 using namespace cv;
+using namespace TooN;
 
 class shape_tracking {
 
@@ -30,9 +32,10 @@ class shape_tracking {
     ros::NodeHandle _nh;
     ros::Subscriber _img_sub_l;
     ros::Subscriber _img_sub_r;
-
+    ros::Publisher  _sphere_pub;
     ros::Publisher _c1_pub;
     ros::Publisher _c2_pub;
+
     //Input image
     Mat _src_l;
     Mat _src_r;
@@ -42,20 +45,16 @@ class shape_tracking {
     //---Params
     string _img_topic_l;
     string _img_topic_r;
-    int _off_x;
-    int _off_y;
-    int _rect_w;
-    int _rect_h;
-
+    string _task;
+    int _off_x_l;
+    int _off_y_l;
+    int _rect_w_l;
+    int _rect_h_l;
+    int _off_x_r;
+    int _off_y_r;
+    int _rect_w_r;
+    int _rect_h_r;
     int _rate;
-    bool _show_img_contounrs;
-    bool _to_blur;
-    bool _show_img_elaboration;
-    bool _set_dilation;
-    bool _set_RGB;
-    bool _set_th;
-    bool _set_roi;
-    bool _stereo_cam;
     int _low_r;
     int _low_g;
     int _low_b;
@@ -67,14 +66,19 @@ class shape_tracking {
     int _th;
     int _roi_off_x;
     int _roi_off_y;
-    string _task;
+    bool _show_img_contounrs;
+    bool _to_blur;
+    bool _show_img_elaboration;
+    bool _set_dilation;
+    bool _set_RGB;
+    bool _set_th;
+    bool _set_roi;
+    bool _stereo_cam;
+    int _hc_param1;
+    int _hc_param2;
     //---
 
     ellipse_tracking *etrack;
-
-
-    //Tmp for disp_debug
-    ros::Publisher empty_pub;
 
 };
 

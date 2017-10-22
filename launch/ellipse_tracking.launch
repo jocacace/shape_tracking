@@ -7,10 +7,10 @@
     <param name="img_left_topic" type="string" value="/rodyman/left_camera/image_raw/rep" />
 
     <param name="set_roi" type="bool" value="false" />
-    <param name="off_x" type="int" value="409" />
-    <param name="off_y" type="int" value="80" />
-    <param name="rect_w" type="int" value="460" />
-    <param name="rect_h" type="int" value="380" />
+    <param name="off_x_l" type="int" value="409" />
+    <param name="off_y_l" type="int" value="80" />
+    <param name="rect_w_l" type="int" value="460" />
+    <param name="rect_h_l" type="int" value="380" />
     <param name="to_blur" type="bool" value="false" />
 
     <!--Display output-->
@@ -40,6 +40,7 @@
     <param name="th" type="int" value="240" />
 
     <param name="show_image_elaboration" type="bool" value="true" />
+		<param name="task" type="string" value="ellipse_tracking" />
 
   </node>
 
