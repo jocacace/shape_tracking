@@ -334,6 +334,8 @@ void shape_tracking::track_ellipses() {
   Point original_center_e2;
 
 
+
+
   while(ros::ok()) {
 
     ellipse_min_c[0] = ellipse_min_c[1] = 1000;
@@ -344,11 +346,11 @@ void shape_tracking::track_ellipses() {
     contours.clear();
 
     //---Get first ellipse
-
+    bool to_dilate = true;
     invert_img = false;
     //Mat cropedImage = img(Rect( _off_x, _off_y, img.cols-_off_x, img.rows-_off_y));
     Mat cropedImage = img(Rect( _off_x_l, _off_y_l, _rect_w_l, _rect_h_l));
-    etrack->get_ellipse(cropedImage, _to_blur, low_rgb, high_rgb, invert_img, _dilation_elem, _dilation_size, false, false, outer_ellipse, ellipse_center);
+    etrack->get_ellipse(cropedImage, _to_blur, low_rgb, high_rgb, invert_img, to_dilate, _dilation_elem, _dilation_size, false, false, outer_ellipse, ellipse_center);
 
     for(int pts=0; pts<outer_ellipse.size(); pts++ ) {
       ellipse_min_c[0] = (ellipse_min_c[0] > outer_ellipse[pts].x ) ? outer_ellipse[pts].x : ellipse_min_c[0];
@@ -358,6 +360,7 @@ void shape_tracking::track_ellipses() {
     }
     Mat ellipse_roi = cropedImage(Rect( ellipse_min_c[0]-_roi_off_x, ellipse_min_c[1]-_roi_off_y, (ellipse_max_c[0]-ellipse_min_c[0])+_roi_off_x*2, (ellipse_max_c[1]-ellipse_min_c[1])+_roi_off_y*2) );
     Mat ellipse_roi_tmp;
+
 
     if( _set_th ) {
       _th = bin_th;
@@ -369,8 +372,9 @@ void shape_tracking::track_ellipses() {
     else {
       cvtColor( ellipse_roi, ellipse_roi_tmp, CV_BGR2GRAY );
       threshold( ellipse_roi_tmp, ellipse_roi_tmp, _th, 255, 1 );
+      to_dilate = false;
       invert_img = true;
-      etrack->get_ellipse(ellipse_roi_tmp, _to_blur, invert_img, _dilation_elem, _dilation_size, false, false, inner_ellipse, inner_ellipse_center);
+      etrack->get_ellipse(ellipse_roi_tmp, _to_blur, invert_img, to_dilate, _dilation_elem, _dilation_size, false, false, inner_ellipse, inner_ellipse_center);
     }
 
 

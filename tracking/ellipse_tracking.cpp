@@ -5,7 +5,7 @@ ellipse_tracking::ellipse_tracking () {}
 
 void ellipse_tracking::get_ellipse(
   Mat img,
-  bool blur_img, int low_rgb[3], int high_rgb[3], bool invert_img, int dilation_elem, int dilation_size, bool disp_debug, bool disp_output,
+  bool blur_img, int low_rgb[3], int high_rgb[3], bool invert_img, bool dilate_img, int dilation_elem, int dilation_size, bool disp_debug, bool disp_output,
   vector< Point> & ellips, Point & center ) {
 
   //---local init
@@ -36,20 +36,22 @@ void ellipse_tracking::get_ellipse(
     waitKey(1);
   }
 
-  //Dilate
   Mat element = getStructuringElement( dilation_elem, Size( 2*dilation_size + 1, 2*dilation_size+1 ), Point( dilation_size, dilation_size ));
-  dilate( img_th, img_th, element );
-  //---
+  if( dilate_img ) {
+    //Dilate
+    dilate( img_th, img_th, element );
+    //---
+  }
 
   //Invert!!!
-  if( invert_img )
+  if( invert_img ) {
     img_th = Scalar::all(255) - img_th;
-
+  }
 
   //Contours
   findContours( img_th, contours, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE);
 
-  if( disp_debug ) {
+  if(  disp_debug ) {
     Mat drawing = Mat::zeros(img_th.size(), CV_8UC3 );
 
     for( int i = 0; i< contours.size(); i++ ) {
@@ -96,12 +98,12 @@ void ellipse_tracking::get_ellipse(
 
 }
 
-void ellipse_tracking::get_ellipse(Mat img, bool blur_img, bool invert_img, int dilation_elem, int dilation_size, bool disp_debug, bool disp_output, vector< Point> & ellips, Point & center) {
+void ellipse_tracking::get_ellipse(Mat img, bool blur_img, bool invert_img, bool dilate_img,  int dilation_elem, int dilation_size, bool disp_debug, bool disp_output, vector< Point> & ellips, Point & center) {
   int low_rgb[3];
   int high_rgb[3];
 
   low_rgb[0] = low_rgb[1] = low_rgb[2] = -1;
   high_rgb[0] = high_rgb[1] = high_rgb[2] = -1;
 
-  get_ellipse( img, blur_img,low_rgb, high_rgb, invert_img, dilation_elem, dilation_size, disp_debug, disp_output, ellips, center );
+  get_ellipse( img, blur_img,low_rgb, high_rgb, invert_img, dilate_img, dilation_elem, dilation_size, disp_debug, disp_output, ellips, center );
 }
