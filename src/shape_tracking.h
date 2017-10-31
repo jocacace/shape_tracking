@@ -3,6 +3,8 @@
 #include <cv_bridge/cv_bridge.h>
 #include "boost/thread.hpp"
 #include <geometry_msgs/Point.h>
+#include <sensor_msgs/Image.h>
+#include "sensor_msgs/CameraInfo.h"
 
 #include "ellipse_tracking.h"
 #include "sphere_stereo_tracking.h"
@@ -27,6 +29,8 @@ class shape_tracking {
     void tune_dilation();
     void set_roi();
     void track_sphere();
+    void cam1_parameters( sensor_msgs::CameraInfo camera_info);
+    void cam2_parameters( sensor_msgs::CameraInfo camera_info);
 
   private:
 
@@ -34,18 +38,29 @@ class shape_tracking {
     ros::Subscriber _img_sub_l;
     ros::Subscriber _img_sub_r;
     ros::Publisher  _sphere_pub;
-    ros::Publisher _c1_pub;
-    ros::Publisher _c2_pub;
+    ros::Publisher _c1_pub_l;
+    ros::Publisher _c2_pub_l;
+    ros::Publisher _c1_pub_r;
+    ros::Publisher _c2_pub_r;
+
+    ros::Subscriber _cam1_info_sub;
+    ros::Subscriber _cam2_info_sub;
+
 
     //Input image
     Mat _src_l;
     Mat _src_r;
     bool _img_l_ready;
     bool _img_r_ready;
+    bool _cam1_info_first;
+    bool _cam2_info_first;
 
     //---Params
     string _img_topic_l;
     string _img_topic_r;
+    string _cam_info_topic_l;
+    string _cam_info_topic_r;
+
     string _task;
     int _off_x_l;
     int _off_y_l;
@@ -89,6 +104,12 @@ class shape_tracking {
     //---
 
     ellipse_tracking *etrack;
+
+    //---camera parameters
+    cv::Mat *_cam1_cameraMatrix, *_cam1_distCo, *_cam1_R, *_cam1_P;
+    cv::Mat *_cam2_cameraMatrix, *_cam2_distCo, *_cam2_R, *_cam2_P;
+    //---
+
 
 };
 

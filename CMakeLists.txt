@@ -30,5 +30,5 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(shape_tracking src/shape_tracking.cpp ${TRACKING_SRC})
+add_executable(shape_tracking src/shape_tracking.cpp src/camera_calibration.cpp ${TRACKING_SRC})
 target_link_libraries(shape_tracking ${catkin_LIBRARIES} ${VISP_LIBRARIES})

@@ -92,6 +92,10 @@ shape_tracking::shape_tracking() {
 
   load_param( _img_topic_l, "/rodyman/left_camera/image_raw/rep", "img_left_topic" );
   load_param( _img_topic_r, "/rodyman/right_camera/image_raw/rep", "img_right_topic" );
+
+  load_param( _cam_info_topic_l, "/rodyman/left_camera/camera_info", "cam_info_topic_l" );
+  load_param( _cam_info_topic_r, "/rodyman/right_camera/camera_info", "cam_info_topic_r" );
+
   load_param( _rate, 50, "rate" );
   load_param( _to_blur, false, "to_blur");
   load_param( _show_img_contounrs, false, "show_img_contounrs" );
@@ -137,12 +141,21 @@ shape_tracking::shape_tracking() {
   if( _stereo_cam )
     _img_sub_r = _nh.subscribe( _img_topic_r.c_str(), 0, &shape_tracking::cam_cb_r, this );
 
-  _c1_pub = _nh.advertise<geometry_msgs::Point>("/shape_tracking/ellipse_center", 0);
-  _c2_pub = _nh.advertise<geometry_msgs::Point>("/shape_tracking/ellipse_orientation", 0);
+  _c1_pub_l = _nh.advertise<geometry_msgs::Point>("/shape_tracking/cam1/ellipse_center", 0);
+  _c2_pub_l = _nh.advertise<geometry_msgs::Point>("/shape_tracking/cam1/ellipse_orientation", 0);
+
+  _c1_pub_r = _nh.advertise<geometry_msgs::Point>("/shape_tracking/cam2/ellipse_center", 0);
+  _c2_pub_r = _nh.advertise<geometry_msgs::Point>("/shape_tracking/cam2/ellipse_orientation", 0);
+
   _sphere_pub = _nh.advertise<geometry_msgs::Point>("/shape_tracking/sphere_centre", 0);
 
   _img_l_ready = false;
   _img_r_ready = false;
+  _cam1_info_first = false;
+  _cam2_info_first = false;
+
+  _cam1_info_sub = _nh.subscribe(_cam_info_topic_l.c_str(), 0, &shape_tracking::cam1_parameters, this);
+  _cam2_info_sub = _nh.subscribe(_cam_info_topic_r.c_str(), 0, &shape_tracking::cam2_parameters, this);
 
   if( _task == "ellipse_tracking")
     etrack = new ellipse_tracking();
@@ -419,8 +432,8 @@ void shape_tracking::track_ellipses() {
     p2.x = original_center_e2.x;
     p2.y = original_center_e2.y;
 
-    _c1_pub.publish( p1 );
-    _c2_pub.publish( p2 );
+    _c1_pub_r.publish( p1 );
+    _c2_pub_r.publish( p2 );
 
     r.sleep();
   }
@@ -441,6 +454,14 @@ void shape_tracking::track_ellipses_stereo() {
 		usleep(0.1*1e6);
 	}
   cout << "_img_r_ready: " << _img_r_ready << endl;
+
+  while( !_cam1_info_first ) {
+		usleep(0.1*1e6);
+	}
+
+  while( !_cam2_info_first ) {
+		usleep(0.1*1e6);
+	}
 
   Scalar color = Scalar( 0, 0, 255 );
 
@@ -483,6 +504,7 @@ void shape_tracking::track_ellipses_stereo() {
   ellipse_min_c_r[0] = ellipse_min_c_r[1] = 1000;
   ellipse_max_c_r[0] = ellipse_max_c_r[1] = -1000;
   geometry_msgs::Point p1_r, p2_r;
+  bool to_dilate = true;
 
   bool invert_img = false;
   if( _set_th ) {
@@ -498,6 +520,7 @@ void shape_tracking::track_ellipses_stereo() {
   Point original_center_e1_r;
   Point original_center_e2_r;
 
+
   while(ros::ok()) {
 
     img_l = _src_l;
@@ -506,15 +529,15 @@ void shape_tracking::track_ellipses_stereo() {
     if( img_l.empty() || img_r.empty() )
       continue;
 
-    ellipse_min_c_l[0] = ellipse_min_c_l[1] = 1000;
-    ellipse_max_c_l[0] = ellipse_max_c_l[1] = -1000;
+    ellipse_min_c_l[0] = ellipse_min_c_r[1] = 1000;
+    ellipse_max_c_l[0] = ellipse_max_c_r[1] = -1000;
 
     outer_ellipse_l.clear();
     inner_ellipse_l.clear();
     contours_l.clear();
 
     //---Get first ellipse
-    bool to_dilate = true;
+    to_dilate = true;
     invert_img = false;
 
     Mat cropedImage_l = img_l(Rect( _off_x_l, _off_y_l, _rect_w_l, _rect_h_l));
@@ -528,9 +551,6 @@ void shape_tracking::track_ellipses_stereo() {
     }
     Mat ellipse_roi_l = cropedImage_l(Rect( ellipse_min_c_l[0]-_roi_off_x, ellipse_min_c_l[1]-_roi_off_y, (ellipse_max_c_l[0]-ellipse_min_c_l[0])+_roi_off_x*2, (ellipse_max_c_l[1]-ellipse_min_c_l[1])+_roi_off_y*2) );
     Mat ellipse_roi_tmp_l;
-
-    //imshow("roi_l", ellipse_roi_l);
-    //waitKey(10);
 
     if( _set_th ) {
       _th = bin_th;
@@ -546,8 +566,6 @@ void shape_tracking::track_ellipses_stereo() {
       invert_img = true;
       etrack->get_ellipse(ellipse_roi_tmp_l, _to_blur, invert_img, to_dilate, _dilation_elem, _dilation_size, false, false, inner_ellipse_l, inner_ellipse_center_l);
     }
-
-
 
     original_center_e1_l.x = (ellipse_center_l.x + _off_x_l  );
     original_center_e1_l.y = (ellipse_center_l.y + _off_y_l  );
@@ -570,22 +588,95 @@ void shape_tracking::track_ellipses_stereo() {
       circle( img_l, original_center_e1_l, 2, color, 2, 8 );
       circle( img_l, original_center_e2_l, 2, color, 2, 8 );
 
-
-      imshow( "img", img_l );
-      waitKey(1);
-
     }
+
     p1_l.x = original_center_e1_l.x;
     p1_l.y = original_center_e1_l.y;
     p2_l.x = original_center_e2_l.x;
     p2_l.y = original_center_e2_l.y;
 
-    _c1_pub.publish( p1_l );
-    _c2_pub.publish( p2_l );
+
+    outer_ellipse_r.clear();
+    inner_ellipse_r.clear();
+    contours_r.clear();
+
+    //---Get first ellipse
+    to_dilate = true;
+    invert_img = false;
+
+    Mat cropedImage_r = img_r(Rect( _off_x_r, _off_y_r, _rect_w_r, _rect_h_r));
+    etrack->get_ellipse(cropedImage_r, _to_blur, low_rgb_r, high_rgb_r, invert_img, to_dilate, _dilation_elem, _dilation_size, false, false, outer_ellipse_r, ellipse_center_r);
+
+    for(int pts=0; pts<outer_ellipse_r.size(); pts++ ) {
+      ellipse_min_c_r[0] = (ellipse_min_c_r[0] > outer_ellipse_r[pts].x ) ? outer_ellipse_r[pts].x : ellipse_min_c_r[0];
+      ellipse_min_c_r[1] = (ellipse_min_c_r[1] > outer_ellipse_r[pts].y ) ? outer_ellipse_r[pts].y : ellipse_min_c_r[1];
+      ellipse_max_c_r[0] = (ellipse_max_c_r[0] < outer_ellipse_r[pts].x ) ? outer_ellipse_r[pts].x : ellipse_max_c_r[0];
+      ellipse_max_c_r[1] = (ellipse_max_c_r[1] < outer_ellipse_r[pts].y ) ? outer_ellipse_r[pts].y : ellipse_max_c_r[1];
+    }
+    Mat ellipse_roi_r = cropedImage_r(Rect( ellipse_min_c_r[0]-_roi_off_x, ellipse_min_c_r[1]-_roi_off_y, (ellipse_max_c_r[0]-ellipse_min_c_r[0])+_roi_off_x*2, (ellipse_max_c_r[1]-ellipse_min_c_r[1])+_roi_off_y*2) );
+    Mat ellipse_roi_tmp_r;
+
+    if( _set_th ) {
+      _th = bin_th;
+      cvtColor( ellipse_roi_r, ellipse_roi_tmp_r, CV_BGR2GRAY );
+      threshold( ellipse_roi_tmp_r, ellipse_roi_tmp_r, _th, 255, 1 );
+      imshow("Binary threshold",ellipse_roi_tmp_r);
+      waitKey(1);
+    }
+    else {
+      cvtColor( ellipse_roi_r, ellipse_roi_tmp_r, CV_BGR2GRAY );
+      threshold( ellipse_roi_tmp_r, ellipse_roi_tmp_r, _th, 255, 1 );
+      to_dilate = false;
+      invert_img = true;
+      etrack->get_ellipse(ellipse_roi_tmp_r, _to_blur, invert_img, to_dilate, _dilation_elem, _dilation_size, false, false, inner_ellipse_r, inner_ellipse_center_r);
+    }
+
+    original_center_e1_r.x = (ellipse_center_r.x + _off_x_r  );
+    original_center_e1_r.y = (ellipse_center_r.y + _off_y_r  );
+    original_center_e2_r.x = (inner_ellipse_center_r.x + _off_x_r + ellipse_min_c_r[0] );
+    original_center_e2_r.y = (inner_ellipse_center_r.y + _off_y_r + ellipse_min_c_r[1] );
+
+    if( _show_img_elaboration ) {
+      translated_c_r.clear();
+      Point conts;
+      for(int i=0; i<outer_ellipse_r.size(); i++) {
+        conts.x = outer_ellipse_r[i].x + _off_x_r ;
+        conts.y = outer_ellipse_r[i].y + _off_y_r;
+        translated_c_r.push_back(conts);
+      }
+      contours_r.clear();
+      contours_r.push_back( translated_c_r );
+      drawContours( img_r, contours_r, 0, color, 2, 8 );
+
+      circle( img_r, original_center_e1_r, 2, color, 2, 8 );
+      circle( img_r, original_center_e2_r, 2, color, 2, 8 );
+    }
+
+    if( _show_img_elaboration ) {
+
+      Mat stereo_output;
+      stereo_output.push_back( img_l );
+      stereo_output.push_back( img_r );
+
+      Size size(stereo_output.rows / 2, stereo_output.cols / 2);//the dst image size,e.g.100x100
+      resize(stereo_output,stereo_output,size);//resize image
+
+      imshow("output", stereo_output);
+      waitKey(1);
+    }
+
+    p1_r.x = original_center_e1_r.x;
+    p1_r.y = original_center_e1_r.y;
+    p2_r.x = original_center_e2_r.x;
+    p2_r.y = original_center_e2_r.y;
+
+    _c1_pub_l.publish( p1_l );
+    _c2_pub_l.publish( p2_l );
+    _c1_pub_r.publish( p1_r );
+    _c2_pub_r.publish( p2_r );
 
     r.sleep();
   }
-
 }
 
 
