@@ -159,6 +159,18 @@ shape_tracking::shape_tracking() {
 
   if( _task == "ellipse_tracking")
     etrack = new ellipse_tracking();
+
+  Matx34d P0_t(1,	0, 0, 0,
+             0, 1, 0, 0,
+             0, 0, 1, 0);
+
+ P0 = P0_t;
+
+ Matx34d P10_t(0.9997656194949723, -0.0192813567040456, 0.009845575629974224, -0.1478065127138684,
+              -0.0192813567040456, 0.9998069378888094, 0.003974069857265075, 0.001063827926624086,
+               0.009845575629974224, 0.003974069857265075, 0.9999436341160856, -0.004848910650938509);
+ P10 = P10_t;
+
 }
 
 void shape_tracking::tune_rgb_gain() {
@@ -433,7 +445,7 @@ void shape_tracking::track_ellipses() {
     p2.y = original_center_e2.y;
 
     _c1_pub_r.publish( p1 );
-    _c2_pub_r.publish( p2 );
+    _c2_pub_l.publish( p2 );
 
     r.sleep();
   }
@@ -520,6 +532,11 @@ void shape_tracking::track_ellipses_stereo() {
   Point original_center_e1_r;
   Point original_center_e2_r;
 
+  int p_camera[2];
+  vector<double> p_space;
+
+  double p_c1_space[2][3];
+  double p_c2_space[2][3];
 
   while(ros::ok()) {
 
@@ -590,12 +607,6 @@ void shape_tracking::track_ellipses_stereo() {
 
     }
 
-    p1_l.x = original_center_e1_l.x;
-    p1_l.y = original_center_e1_l.y;
-    p2_l.x = original_center_e2_l.x;
-    p2_l.y = original_center_e2_l.y;
-
-
     outer_ellipse_r.clear();
     inner_ellipse_r.clear();
     contours_r.clear();
@@ -665,15 +676,57 @@ void shape_tracking::track_ellipses_stereo() {
       waitKey(1);
     }
 
-    p1_r.x = original_center_e1_r.x;
-    p1_r.y = original_center_e1_r.y;
-    p2_r.x = original_center_e2_r.x;
-    p2_r.y = original_center_e2_r.y;
 
-    _c1_pub_l.publish( p1_l );
-    _c2_pub_l.publish( p2_l );
-    _c1_pub_r.publish( p1_r );
-    _c2_pub_r.publish( p2_r );
+    //Img2space conversion
+    //--p0 camera 1
+    p_camera[0] = original_center_e1_l.x;
+    p_camera[1] = original_center_e1_l.y;
+    img2space(p_camera, _cam1_cameraMatrix, _cam1_distCo, _cam1_R, _cam1_P, p_space );
+    p_c1_space[0][0] = p_space[0];
+    p_c1_space[0][1] = p_space[1];
+    p_c1_space[0][2] = p_space[2];
+    //--p1 camera 1
+    p_camera[0] = original_center_e2_l.x;
+    p_camera[1] = original_center_e2_l.y;
+    img2space(p_camera, _cam1_cameraMatrix, _cam1_distCo, _cam1_R, _cam1_P, p_space );
+    p_c1_space[1][0] = p_space[0];
+    p_c1_space[1][1] = p_space[1];
+    p_c1_space[1][2] = p_space[2];
+
+    //--p1 camera 1
+    p_camera[0] = original_center_e1_r.x;
+    p_camera[1] = original_center_e1_r.y;
+    img2space(p_camera, _cam2_cameraMatrix, _cam2_distCo, _cam2_R, _cam2_P, p_space );
+    p_c2_space[0][0] = p_space[0];
+    p_c2_space[0][1] = p_space[1];
+    p_c2_space[0][2] = p_space[2];
+    //--p1 camera 1
+    p_camera[0] = original_center_e2_r.x;
+    p_camera[1] = original_center_e2_r.y;
+    img2space(p_camera, _cam2_cameraMatrix, _cam2_distCo, _cam2_R, _cam2_P, p_space );
+    p_c2_space[1][0] = p_space[0];
+    p_c2_space[1][1] = p_space[1];
+    p_c2_space[1][2] = p_space[2];
+
+
+    cv::Mat pt_set1_pt = cv::Mat(1,1,CV_32FC2);
+    cv::Mat pt_set2_pt = cv::Mat(1,1,CV_32FC2);
+
+    pt_set1_pt.at<cv::Vec2f>(0,0)[0] = p_c1_space[0][0];
+    pt_set1_pt.at<cv::Vec2f>(0,0)[1] = p_c1_space[0][1];
+
+    pt_set2_pt.at<cv::Vec2f>(0,0)[0] = p_c2_space[0][0];
+    pt_set2_pt.at<cv::Vec2f>(0,0)[1] = p_c2_space[0][1];
+
+    Mat pt_3d_h(1,1,CV_32FC4);
+    cv::triangulatePoints(P0, P10, pt_set1_pt, pt_set2_pt, pt_3d_h);
+
+    cout << "3d point centerpeel: " << pt_3d_h << endl;
+
+
+    //cout << "Cam1: (" << p_c1_space[0][0] << " " << p_c1_space[0][1] << " " << p_c1_space[0][2] << "), ("  << p_c1_space[1][0] << " " << p_c1_space[1][1] << " " << p_c1_space[1][2] << ")" << endl;
+    //cout << "Cam2: (" << p_c2_space[0][0] << " " << p_c2_space[0][1] << " " << p_c2_space[0][2] << "), ("  << p_c2_space[1][0] << " " << p_c2_space[1][1] << " " << p_c2_space[1][2] << ")" << endl;
+
 
     r.sleep();
   }

@@ -31,6 +31,7 @@ class shape_tracking {
     void track_sphere();
     void cam1_parameters( sensor_msgs::CameraInfo camera_info);
     void cam2_parameters( sensor_msgs::CameraInfo camera_info);
+    void img2space( int p_in[2], cv::Mat *_cameraMatrix, cv::Mat *_distCo, cv::Mat *_R, cv::Mat *_P, vector<double> & p_out );
 
   private:
 
@@ -108,6 +109,10 @@ class shape_tracking {
     //---camera parameters
     cv::Mat *_cam1_cameraMatrix, *_cam1_distCo, *_cam1_R, *_cam1_P;
     cv::Mat *_cam2_cameraMatrix, *_cam2_distCo, *_cam2_R, *_cam2_P;
+    
+    Matx34d P0;
+    Matx34d P10;
+
     //---
 
 

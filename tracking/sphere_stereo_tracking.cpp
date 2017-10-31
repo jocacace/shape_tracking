@@ -112,7 +112,7 @@ void sphere_stero_tracking::load_conf() {
   me1.threshold = 40000;
 
   dp = 1;
-  
+
   param_1 = _param_1; //120
   param_2 = _param_2; //40
 
@@ -449,8 +449,9 @@ void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, Vector<3> & p0
     cv::undistortPoints(cam0pnts, pt_set1_pt, Kleft, distcoeff1);
     cv::undistortPoints(cam1pnts, pt_set2_pt, Kright, distcoeff2);
 
-    cv::triangulatePoints(Mat(P),Mat(P2), pt_set1_pt,pt_set2_pt,pt_3d_h);
+    cv::triangulatePoints(Mat(P),Mat(P2), pt_set1_pt, pt_set2_pt, pt_3d_h);
     cv::triangulatePoints(Kleft*Mat(P),Kright*Mat(P2),cam0pnts,cam1pnts,pnts3D);
+    
 
     vpHomogeneousMatrix cMo0,cMo02;
     cMo0 = cMo;
@@ -462,6 +463,8 @@ void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, Vector<3> & p0
 		cMo0[0][3] = pt_3d_h.at<cv::Vec4d>(0,0)[0]/pt_3d_h.at<cv::Vec4d>(0,0)[3];
 		cMo0[1][3] = pt_3d_h.at<cv::Vec4d>(0,0)[1]/pt_3d_h.at<cv::Vec4d>(0,0)[3];
 		cMo0[2][3] = pt_3d_h.at<cv::Vec4d>(0,0)[2]/pt_3d_h.at<cv::Vec4d>(0,0)[3];
+
+    cout << "3d coordinate: " << cMo0[0][3] << " " << cMo0[1][3] << " " << cMo0[2][3] << endl;
 
 		x1_n = cMo0[0][3]/cMo0[2][3];
 		y1_n = cMo0[1][3]/cMo0[2][3];

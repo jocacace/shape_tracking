@@ -1,5 +1,28 @@
 #include "shape_tracking.h"
 
+void shape_tracking::img2space( int p_in[2], cv::Mat *_cameraMatrix, cv::Mat *_distCo, cv::Mat *_R, cv::Mat *_P, vector<double> & p_out ) {
+
+  std::vector<cv::KeyPoint> pixel;
+  pixel.resize(1); //2 points to convert
+
+  pixel[0].pt.x = p_in[0];
+  pixel[0].pt.y = p_in[1];
+
+  cv::Mat src = cv::Mat(1,1,CV_32FC2);
+  src.at<cv::Vec2f>(0,0)[0] = p_in[0];
+  src.at<cv::Vec2f>(0,0)[1] = p_in[1];
+
+  cv::Mat dst = cv::Mat(1, pixel.size(), CV_32FC2);
+  cv::undistortPoints(src, dst, *_cameraMatrix, *_distCo);
+
+  p_out.resize(3);
+  p_out[0] = dst.at<cv::Vec2f>(0,0)[0];
+  p_out[1] = dst.at<cv::Vec2f>(0,0)[1];
+  p_out[2] = 1.0;
+
+}
+
+
 //save camera parameters in openCV structs
 void shape_tracking::cam1_parameters( sensor_msgs::CameraInfo camera_info) {
 
