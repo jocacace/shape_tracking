@@ -21,6 +21,7 @@ class shape_tracking {
     void run();
     void cam_cb_l( sensor_msgs::Image imgl );
     void cam_cb_r( sensor_msgs::Image imgr );
+    void track_ellipses_stereo();
     void track_ellipses();
     void tune_rgb_gain();
     void tune_dilation();
@@ -55,12 +56,21 @@ class shape_tracking {
     int _rect_w_r;
     int _rect_h_r;
     int _rate;
-    int _low_r;
-    int _low_g;
-    int _low_b;
-    int _high_r;
-    int _high_g;
-    int _high_b;
+
+    int _low_r_l;
+    int _low_g_l;
+    int _low_b_l;
+    int _high_r_l;
+    int _high_g_l;
+    int _high_b_l;
+
+    int _low_r_r;
+    int _low_g_r;
+    int _low_b_r;
+    int _high_r_r;
+    int _high_g_r;
+    int _high_b_r;
+
     int _dilation_elem;
     int _dilation_size;
     int _th;

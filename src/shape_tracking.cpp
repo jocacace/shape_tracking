@@ -109,12 +109,20 @@ shape_tracking::shape_tracking() {
   load_param( _set_th, false, "set_th");
   load_param( _set_dilation, false, "set_dilation");
   load_param( _show_img_elaboration, true, "show_image_elaboration");
-  load_param( _low_r, 0, "low_r");
-  load_param( _low_g, 0, "low_g");
-  load_param( _low_b, 0, "low_b");
-  load_param( _high_r, 0, "high_r");
-  load_param( _high_g, 255, "high_g");
-  load_param( _high_b, 255, "high_b");
+  load_param( _low_r_l, 0, "low_r_l");
+  load_param( _low_g_l, 0, "low_g_l");
+  load_param( _low_b_l, 0, "low_b_l");
+  load_param( _high_r_l, 0, "high_r_l");
+  load_param( _high_g_l, 255, "high_g_l");
+  load_param( _high_b_l, 255, "high_b_l");
+
+  load_param( _low_r_r, 0, "low_r_r");
+  load_param( _low_g_r, 0, "low_g_r");
+  load_param( _low_b_r, 0, "low_b_r");
+  load_param( _high_r_r, 0, "high_r_r");
+  load_param( _high_g_r, 255, "high_g_r");
+  load_param( _high_b_r, 255, "high_b_r");
+
   load_param( _dilation_elem, 0, "dilation_elem");
   load_param( _dilation_size, 7, "dilation_size");
   load_param( _roi_off_x, 0, "roi_off_x" );
@@ -147,13 +155,13 @@ void shape_tracking::tune_rgb_gain() {
   }
   cout << "_img_l_ready: " << _img_l_ready << endl;
 
-  low_r = _low_r;
-  low_g = _low_g;
-  low_b = _low_b;
+  low_r = _low_r_l;
+  low_g = _low_g_l;
+  low_b = _low_b_l;
 
-  high_r = _high_r;
-  high_g = _high_g;
-  high_b = _high_b;
+  high_r = _high_r_l;
+  high_g = _high_g_l;
+  high_b = _high_b_l;
 
   namedWindow("RGB", WINDOW_NORMAL);
   //-- Trackbars to set thresholds for RGB values
@@ -169,6 +177,8 @@ void shape_tracking::tune_rgb_gain() {
   while(ros::ok()) {
     Mat img = _src_l;
 
+    if( img.empty() )
+      continue;
 
     inRange(img,Scalar(low_b, low_g, low_r), Scalar(high_b, high_g, high_r), img);
     imshow( "RGB", img );
@@ -203,7 +213,7 @@ void shape_tracking::tune_dilation() {
       Point( _dilation_size, _dilation_size ) );
 
     /// Apply the dilation operation
-    inRange(img,Scalar(_low_b, _low_g, _low_r), Scalar(_high_b, _high_g, _high_r), img);
+    inRange(img,Scalar(_low_b_l, _low_g_l, _low_r_l), Scalar(_high_b_l, _high_g_l, _high_r_l), img);
     dilate( img, img, element );
     imshow( "Dilation", img );
     waitKey(1);
@@ -299,12 +309,12 @@ void shape_tracking::track_ellipses() {
   ros::Rate r(_rate);
 
   int low_rgb[3]; int high_rgb[3];
-  low_rgb[0] = _low_r;
-  low_rgb[1] = _low_g;
-  low_rgb[2] = _low_b;
-  high_rgb[0] = _high_r;
-  high_rgb[1] = _high_g;
-  high_rgb[2] = _high_b;
+  low_rgb[0] = _low_r_l;
+  low_rgb[1] = _low_g_l;
+  low_rgb[2] = _low_b_l;
+  high_rgb[0] = _high_r_l;
+  high_rgb[1] = _high_g_l;
+  high_rgb[2] = _high_b_l;
 
   vector<Point> outer_ellipse;
   vector<Point> inner_ellipse;
@@ -417,6 +427,168 @@ void shape_tracking::track_ellipses() {
 
 }
 
+
+void shape_tracking::track_ellipses_stereo() {
+
+  Mat img_l;
+  Mat img_r;
+	while( !_img_l_ready ) {
+		usleep(0.1*1e6);
+	}
+  cout << "_img_l_ready: " << _img_l_ready << endl;
+
+  while( !_img_r_ready ) {
+		usleep(0.1*1e6);
+	}
+  cout << "_img_r_ready: " << _img_r_ready << endl;
+
+  Scalar color = Scalar( 0, 0, 255 );
+
+  ros::Rate r(_rate);
+
+  int low_rgb_l[3]; int high_rgb_l[3];
+  int low_rgb_r[3]; int high_rgb_r[3];
+  low_rgb_l[0] = _low_r_l;
+  low_rgb_l[1] = _low_g_l;
+  low_rgb_l[2] = _low_b_l;
+  high_rgb_l[0] = _high_r_l;
+  high_rgb_l[1] = _high_g_l;
+  high_rgb_l[2] = _high_b_l;
+
+  low_rgb_r[0] = _low_r_r;
+  low_rgb_r[1] = _low_g_r;
+  low_rgb_r[2] = _low_b_r;
+  high_rgb_r[0] = _high_r_r;
+  high_rgb_r[1] = _high_g_r;
+  high_rgb_r[2] = _high_b_r;
+
+  vector<Point> outer_ellipse_l;
+  vector<Point> inner_ellipse_l;
+  Point ellipse_center_l;
+  Point inner_ellipse_center_l;
+  vector<vector<Point> > contours_l;
+  int ellipse_min_c_l[2];
+  int ellipse_max_c_l[2];
+  ellipse_min_c_l[0] = ellipse_min_c_l[1] = 1000;
+  ellipse_max_c_l[0] = ellipse_max_c_l[1] = -1000;
+  geometry_msgs::Point p1_l, p2_l;
+
+  vector<Point> outer_ellipse_r;
+  vector<Point> inner_ellipse_r;
+  Point ellipse_center_r;
+  Point inner_ellipse_center_r;
+  vector<vector<Point> > contours_r;
+  int ellipse_min_c_r[2];
+  int ellipse_max_c_r[2];
+  ellipse_min_c_r[0] = ellipse_min_c_r[1] = 1000;
+  ellipse_max_c_r[0] = ellipse_max_c_r[1] = -1000;
+  geometry_msgs::Point p1_r, p2_r;
+
+  bool invert_img = false;
+  if( _set_th ) {
+    namedWindow("Binary threshold", WINDOW_NORMAL);
+    createTrackbar("bth","Binary threshold", &bin_th, 255, on_thresh_trackbar );
+  }
+
+  vector<Point> translated_c_l;
+  Point original_center_e1_l;
+  Point original_center_e2_l;
+
+  vector<Point> translated_c_r;
+  Point original_center_e1_r;
+  Point original_center_e2_r;
+
+  while(ros::ok()) {
+
+    img_l = _src_l;
+    img_r = _src_r;
+
+    if( img_l.empty() || img_r.empty() )
+      continue;
+
+    ellipse_min_c_l[0] = ellipse_min_c_l[1] = 1000;
+    ellipse_max_c_l[0] = ellipse_max_c_l[1] = -1000;
+
+    outer_ellipse_l.clear();
+    inner_ellipse_l.clear();
+    contours_l.clear();
+
+    //---Get first ellipse
+    bool to_dilate = true;
+    invert_img = false;
+
+    Mat cropedImage_l = img_l(Rect( _off_x_l, _off_y_l, _rect_w_l, _rect_h_l));
+    etrack->get_ellipse(cropedImage_l, _to_blur, low_rgb_l, high_rgb_l, invert_img, to_dilate, _dilation_elem, _dilation_size, false, false, outer_ellipse_l, ellipse_center_l);
+
+    for(int pts=0; pts<outer_ellipse_l.size(); pts++ ) {
+      ellipse_min_c_l[0] = (ellipse_min_c_l[0] > outer_ellipse_l[pts].x ) ? outer_ellipse_l[pts].x : ellipse_min_c_l[0];
+      ellipse_min_c_l[1] = (ellipse_min_c_l[1] > outer_ellipse_l[pts].y ) ? outer_ellipse_l[pts].y : ellipse_min_c_l[1];
+      ellipse_max_c_l[0] = (ellipse_max_c_l[0] < outer_ellipse_l[pts].x ) ? outer_ellipse_l[pts].x : ellipse_max_c_l[0];
+      ellipse_max_c_l[1] = (ellipse_max_c_l[1] < outer_ellipse_l[pts].y ) ? outer_ellipse_l[pts].y : ellipse_max_c_l[1];
+    }
+    Mat ellipse_roi_l = cropedImage_l(Rect( ellipse_min_c_l[0]-_roi_off_x, ellipse_min_c_l[1]-_roi_off_y, (ellipse_max_c_l[0]-ellipse_min_c_l[0])+_roi_off_x*2, (ellipse_max_c_l[1]-ellipse_min_c_l[1])+_roi_off_y*2) );
+    Mat ellipse_roi_tmp_l;
+
+    //imshow("roi_l", ellipse_roi_l);
+    //waitKey(10);
+
+    if( _set_th ) {
+      _th = bin_th;
+      cvtColor( ellipse_roi_l, ellipse_roi_tmp_l, CV_BGR2GRAY );
+      threshold( ellipse_roi_tmp_l, ellipse_roi_tmp_l, _th, 255, 1 );
+      imshow("Binary threshold",ellipse_roi_tmp_l);
+      waitKey(1);
+    }
+    else {
+      cvtColor( ellipse_roi_l, ellipse_roi_tmp_l, CV_BGR2GRAY );
+      threshold( ellipse_roi_tmp_l, ellipse_roi_tmp_l, _th, 255, 1 );
+      to_dilate = false;
+      invert_img = true;
+      etrack->get_ellipse(ellipse_roi_tmp_l, _to_blur, invert_img, to_dilate, _dilation_elem, _dilation_size, false, false, inner_ellipse_l, inner_ellipse_center_l);
+    }
+
+
+
+    original_center_e1_l.x = (ellipse_center_l.x + _off_x_l  );
+    original_center_e1_l.y = (ellipse_center_l.y + _off_y_l  );
+    original_center_e2_l.x = (inner_ellipse_center_l.x + _off_x_l + ellipse_min_c_l[0] );
+    original_center_e2_l.y = (inner_ellipse_center_l.y + _off_y_l + ellipse_min_c_l[1] );
+
+
+    if( _show_img_elaboration ) {
+      translated_c_l.clear();
+      Point conts;
+      for(int i=0; i<outer_ellipse_l.size(); i++) {
+        conts.x = outer_ellipse_l[i].x + _off_x_l ;
+        conts.y = outer_ellipse_l[i].y + _off_y_l;
+        translated_c_l.push_back(conts);
+      }
+      contours_l.clear();
+      contours_l.push_back( translated_c_l );
+      drawContours( img_l, contours_l, 0, color, 2, 8 );
+
+      circle( img_l, original_center_e1_l, 2, color, 2, 8 );
+      circle( img_l, original_center_e2_l, 2, color, 2, 8 );
+
+
+      imshow( "img", img_l );
+      waitKey(1);
+
+    }
+    p1_l.x = original_center_e1_l.x;
+    p1_l.y = original_center_e1_l.y;
+    p2_l.x = original_center_e2_l.x;
+    p2_l.y = original_center_e2_l.y;
+
+    _c1_pub.publish( p1_l );
+    _c2_pub.publish( p2_l );
+
+    r.sleep();
+  }
+
+}
+
+
 void shape_tracking::track_sphere() {
 
   while( !_img_l_ready || !_img_r_ready )
@@ -484,7 +656,9 @@ void shape_tracking::run() {
   else if( _task == "ellipse_tracking")
     boost::thread track_ellipses_t( &shape_tracking::track_ellipses, this );
   else if( _task == "sphere_tracking")
-    boost::thread track_ellipses_t( &shape_tracking::track_sphere, this );
+    boost::thread track_sphere_t( &shape_tracking::track_sphere, this );
+  else if( _task == "ellipse_stereo_tracking")
+    boost::thread track_ellipses_stero_t( &shape_tracking::track_ellipses_stereo, this );
 
   ros::spin();
 }
