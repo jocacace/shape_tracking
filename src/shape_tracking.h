@@ -5,7 +5,7 @@
 #include <geometry_msgs/Point.h>
 #include <sensor_msgs/Image.h>
 #include "sensor_msgs/CameraInfo.h"
-
+#include <ros/package.h>
 #include "ellipse_tracking.h"
 #include "sphere_stereo_tracking.h"
 
@@ -32,12 +32,16 @@ class shape_tracking {
     void cam1_parameters( sensor_msgs::CameraInfo camera_info);
     void cam2_parameters( sensor_msgs::CameraInfo camera_info);
     void img2space( int p_in[2], cv::Mat *_cameraMatrix, cv::Mat *_distCo, cv::Mat *_R, cv::Mat *_P, vector<double> & p_out );
+    void dept_cb( sensor_msgs::Image depth );
+    void save_images();
+
 
   private:
 
     ros::NodeHandle _nh;
     ros::Subscriber _img_sub_l;
     ros::Subscriber _img_sub_r;
+    ros::Subscriber _depth_img_sub;
     ros::Publisher  _sphere_pub;
     ros::Publisher _c1_pub_l;
     ros::Publisher _c2_pub_l;
@@ -51,12 +55,19 @@ class shape_tracking {
     //Input image
     Mat _src_l;
     Mat _src_r;
+    Mat _depth_src_r;
     bool _img_l_ready;
+    bool _depth_ready;
     bool _img_r_ready;
     bool _cam1_info_first;
     bool _cam2_info_first;
+    bool _apply_roi;
+    bool _use_depth;
 
     //---Params
+    string _camera_left_info_topic;
+    string _camera_right_info_topic;
+    string _depth_img;
     string _img_topic_l;
     string _img_topic_r;
     string _cam_info_topic_l;
@@ -102,6 +113,8 @@ class shape_tracking {
     bool _stereo_cam;
     int _hc_param1;
     int _hc_param2;
+
+    bool _track_orientation;
     //---
 
     ellipse_tracking *etrack;
@@ -109,18 +122,23 @@ class shape_tracking {
     //---camera parameters
     cv::Mat *_cam1_cameraMatrix, *_cam1_distCo, *_cam1_R, *_cam1_P;
     cv::Mat *_cam2_cameraMatrix, *_cam2_distCo, *_cam2_R, *_cam2_P;
-    
     Matx34d P0;
     Matx34d P10;
-
     //---
 
 
 };
 
-void on_low_r_thresh_trackbar(int, void *);
-void on_high_r_thresh_trackbar(int, void *);
-void on_low_g_thresh_trackbar(int, void *);
-void on_high_g_thresh_trackbar(int, void *);
-void on_low_b_thresh_trackbar(int, void *);
-void on_high_b_thresh_trackbar(int, void *);
+void on_low_r_thresh_trackbar_r(int, void *);
+void on_high_r_thresh_trackbar_r(int, void *);
+void on_low_g_thresh_trackbar_r(int, void *);
+void on_high_g_thresh_trackbar_r(int, void *);
+void on_low_b_thresh_trackbar_r(int, void *);
+void on_high_b_thresh_trackbar_r(int, void *);
+
+void on_low_r_thresh_trackbar_l(int, void *);
+void on_high_r_thresh_trackbar_l(int, void *);
+void on_low_g_thresh_trackbar_l(int, void *);
+void on_high_g_thresh_trackbar_l(int, void *);
+void on_low_b_thresh_trackbar_l(int, void *);
+void on_high_b_thresh_trackbar_l(int, void *);

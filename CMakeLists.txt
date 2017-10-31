@@ -5,8 +5,7 @@ add_compile_options(-std=c++11)
 find_package(VISP REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
-  image_transport
-  roscpp
+  image_transport  
   roscpp
   roslib
   sensor_msgs

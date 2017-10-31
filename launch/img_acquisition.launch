@@ -1,0 +1,13 @@
+<?xml version="1.0" ?>
+
+<launch>
+  <node pkg="shape_tracking" name="shape_tracking" type="shape_tracking" output="screen">
+
+    <param name="rate" type="int" value="50" />
+    <param name="img_left_topic" type="string" value="/rodyman/left_camera/image_raw" />
+    <param name="img_right_topic" type="string" value="/rodyman/right_camera/image_raw" />
+		<param name="task" type="string" value="save_images" />
+    <param name="stereo_cam" type="bool" value="true" />
+  </node>
+
+</launch>
