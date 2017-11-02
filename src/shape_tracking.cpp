@@ -178,6 +178,10 @@ shape_tracking::shape_tracking() {
 
   load_param( _track_orientation, false, "track_orientation");
 
+  //temp
+  load_param( _port, 9090, "port");
+  load_param( _address, "192.168.1.1", "address");
+
   bin_th = _th;
   _img_sub_l = _nh.subscribe( _img_topic_l.c_str(), 0, &shape_tracking::cam_cb_l, this );
   if( _stereo_cam )
@@ -201,7 +205,8 @@ shape_tracking::shape_tracking() {
   _cam2_info_first = false;
 
   _cam1_info_sub = _nh.subscribe(_cam_info_topic_l.c_str(), 0, &shape_tracking::cam1_parameters, this);
-  _cam2_info_sub = _nh.subscribe(_cam_info_topic_r.c_str(), 0, &shape_tracking::cam2_parameters, this);
+  if( _stereo_cam )
+    _cam2_info_sub = _nh.subscribe(_cam_info_topic_r.c_str(), 0, &shape_tracking::cam2_parameters, this);
 
   if( _task == "ellipse_tracking")
     etrack = new ellipse_tracking();
@@ -216,24 +221,24 @@ shape_tracking::shape_tracking() {
               0.0179, 0.99, 0.0011, 0.003,
               -0.0015, -0.0011, 1.0, 0.0005);
  P10 = P10_t;
+ robohelper::create_socket(robohelper::string2char(_address), _port, &_output_data_socket );
 
 
 
 }
 
-
 void shape_tracking::dept_cb( sensor_msgs::Image msg ) {
 
   cv_bridge::CvImagePtr cv_ptr;
 	try {
-		cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_16UC1);
+		cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::TYPE_32FC1);
 	}
 	catch (cv_bridge::Exception& e) {
 		ROS_ERROR("cv_bridge exception: %s", e.what());
 		return;
 	}
 
-	_depth_src_r = cv_ptr->image;
+	_depth_src = cv_ptr->image;
 	_depth_ready = true;
 }
 
@@ -484,6 +489,13 @@ void shape_tracking::track_ellipses() {
   Point original_center_e1;
   Point original_center_e2;
 
+  double cx, cy, fx_inv, fy_inv;
+  double cx_c1, cy_c1, cz_c1;
+  double cx_c2, cy_c2, cz_c2;
+  float zd_c1;
+  float zd_c2;
+  points output;
+
 
   while(ros::ok()) {
 
@@ -501,7 +513,6 @@ void shape_tracking::track_ellipses() {
     Mat cropedImage = img(Rect( _off_x_l, _off_y_l, _rect_w_l, _rect_h_l));
 
     etrack->get_ellipse(cropedImage, _to_blur, low_rgb, high_rgb, invert_img, to_dilate, _dilation_elem, _dilation_size, false, false, outer_ellipse, ellipse_center);
-
 
     for(int pts=0; pts<outer_ellipse.size(); pts++ ) {
       ellipse_min_c[0] = (ellipse_min_c[0] > outer_ellipse[pts].x ) ? outer_ellipse[pts].x : ellipse_min_c[0];
@@ -556,15 +567,45 @@ void shape_tracking::track_ellipses() {
       waitKey(1);
 
     }
-    p1.x = original_center_e1.x;
-    p1.y = original_center_e1.y;
-    _c1_pub_r.publish( p1 );
 
-    if( _track_orientation ) {
-      p2.x = original_center_e2.x;
-      p2.y = original_center_e2.y;
-      _c2_pub_l.publish( p2 );
+
+    if( _use_depth ) {
+
+      cx = _cam1_cameraMatrix->at<double>(0,2);
+      cy = _cam1_cameraMatrix->at<double>(1,2);
+      fx_inv = 1.0 / _cam1_cameraMatrix->at<double>(0,0);
+      fy_inv = 1.0 / _cam1_cameraMatrix->at<double>(1,1);
+      zd_c1 = _depth_src.at<float>(original_center_e1.y,original_center_e1.x);
+
+      cx_c1 = (zd_c1*0.001) * ( (original_center_e1.x - cx) * fx_inv );
+      cy_c1 = (zd_c1*0.001) * ( (original_center_e1.y - cy) * fy_inv );
+      cz_c1 = zd_c1;
+
+      if( _track_orientation ) {
+        zd_c2 = _depth_src.at<float>(original_center_e2.y,original_center_e2.x);
+        cx_c2 = (zd_c2*0.001) * ( (original_center_e2.x - cx) * fx_inv );
+        cy_c2 = (zd_c2*0.001) * ( (original_center_e2.y - cy) * fy_inv );
+        cz_c2 = zd_c2;
+      }
+      else {
+        cx_c2 = -1;
+        cy_c2 = -1;
+        cz_c2 = -1;
+      }
     }
+    else {
+      //TODO img2space
+    }
+
+    output.p1.x = cx_c1;
+    output.p1.y = cy_c1;
+    output.p1.z = cz_c1;
+
+    output.p2.x = cx_c2;
+    output.p2.y = cy_c2;
+    output.p2.z = cz_c2;
+
+    int w = write( _output_data_socket, &output, sizeof(output));
 
 
     r.sleep();
@@ -723,6 +764,17 @@ void shape_tracking::track_ellipses_stereo() {
   double p_c1_space[2][3];
   double p_c2_space[2][3];
 
+  cv::Mat pt_set1_pt_0 = cv::Mat(1,1,CV_32FC2);
+  cv::Mat pt_set2_pt_0 = cv::Mat(1,1,CV_32FC2);
+  cv::Mat pt_set1_pt_1 = cv::Mat(1,1,CV_32FC2);
+  cv::Mat pt_set2_pt_1 = cv::Mat(1,1,CV_32FC2);
+  Mat pt_3d_h_p0(1,1,CV_64FC4);
+  Mat pt_3d_h_p1(1,1,CV_64FC4);
+
+  double p03d[3];
+  double p13d[3];
+  points output;
+
   while(ros::ok()) {
 
     img_l = _src_l;
@@ -876,9 +928,8 @@ void shape_tracking::track_ellipses_stereo() {
       waitKey(1);
     }
 
-
     //Img2space conversion
-    //--p0 camera 1
+    //--p0 camera 1 (left)
     p_camera[0] = original_center_e1_l.x;
     p_camera[1] = original_center_e1_l.y;
     img2space(p_camera, _cam1_cameraMatrix, _cam1_distCo, _cam1_R, _cam1_P, p_space );
@@ -886,17 +937,17 @@ void shape_tracking::track_ellipses_stereo() {
     p_c1_space[0][1] = p_space[1];
     p_c1_space[0][2] = p_space[2];
 
-    //cout << p_space[0] << " " <<  p_space[1] << " " <<  p_space[2] << endl;
-
     //--p1 camera 1
-    p_camera[0] = original_center_e2_l.x;
-    p_camera[1] = original_center_e2_l.y;
-    img2space(p_camera, _cam1_cameraMatrix, _cam1_distCo, _cam1_R, _cam1_P, p_space );
-    p_c1_space[1][0] = p_space[0];
-    p_c1_space[1][1] = p_space[1];
-    p_c1_space[1][2] = p_space[2];
+    if( _track_orientation ) {
+      p_camera[0] = original_center_e2_l.x;
+      p_camera[1] = original_center_e2_l.y;
+      img2space(p_camera, _cam1_cameraMatrix, _cam1_distCo, _cam1_R, _cam1_P, p_space );
+      p_c1_space[1][0] = p_space[0];
+      p_c1_space[1][1] = p_space[1];
+      p_c1_space[1][2] = p_space[2];
+    }
 
-    //--p1 camera 1
+    //--p1 camera 2 (right)
     p_camera[0] = original_center_e1_r.x;
     p_camera[1] = original_center_e1_r.y;
     img2space(p_camera, _cam2_cameraMatrix, _cam2_distCo, _cam2_R, _cam2_P, p_space );
@@ -904,35 +955,59 @@ void shape_tracking::track_ellipses_stereo() {
     p_c2_space[0][1] = p_space[1];
     p_c2_space[0][2] = p_space[2];
 
-    //--p1 camera 1
-    p_camera[0] = original_center_e2_r.x;
-    p_camera[1] = original_center_e2_r.y;
-    img2space(p_camera, _cam2_cameraMatrix, _cam2_distCo, _cam2_R, _cam2_P, p_space );
-    p_c2_space[1][0] = p_space[0];
-    p_c2_space[1][1] = p_space[1];
-    p_c2_space[1][2] = p_space[2];
+    //--p1 camera 2
+    if( _track_orientation ) {
+      p_camera[0] = original_center_e2_r.x;
+      p_camera[1] = original_center_e2_r.y;
+      img2space(p_camera, _cam2_cameraMatrix, _cam2_distCo, _cam2_R, _cam2_P, p_space );
+      p_c2_space[1][0] = p_space[0];
+      p_c2_space[1][1] = p_space[1];
+      p_c2_space[1][2] = p_space[2];
+    }
 
+    //---img2space conversion
+    pt_set1_pt_0.at<cv::Vec2f>(0,0)[0] = p_c1_space[0][0]; //p0 c1 x
+    pt_set1_pt_0.at<cv::Vec2f>(0,0)[1] = p_c1_space[0][1]; //p0 c1 y
+    pt_set2_pt_0.at<cv::Vec2f>(0,0)[0] = p_c2_space[0][0]; //p1 c1 x
+    pt_set2_pt_0.at<cv::Vec2f>(0,0)[1] = p_c2_space[0][1]; //p1 c1 y
 
-    cv::Mat pt_set1_pt = cv::Mat(1,1,CV_32FC2);
-    cv::Mat pt_set2_pt = cv::Mat(1,1,CV_32FC2);
+    if( _track_orientation ) {
+      pt_set1_pt_1.at<cv::Vec2f>(0,0)[0] = p_c1_space[1][0]; //p0 c2 x
+      pt_set1_pt_1.at<cv::Vec2f>(0,0)[1] = p_c1_space[1][1]; //p0 c2 y
+      pt_set2_pt_1.at<cv::Vec2f>(0,0)[0] = p_c2_space[1][0]; //p1 c2 x
+      pt_set2_pt_1.at<cv::Vec2f>(0,0)[1] = p_c2_space[1][1]; //p1 c2 y
+    }
+    //---
 
-    pt_set1_pt.at<cv::Vec2f>(0,0)[0] = p_c1_space[0][0];
-    pt_set1_pt.at<cv::Vec2f>(0,0)[1] = p_c1_space[0][1];
+    //---Stereo triangulation
+    cv::triangulatePoints(P0, P10, pt_set1_pt_0, pt_set2_pt_0, pt_3d_h_p0);
+    if( _track_orientation ) {
+      cv::triangulatePoints(P0, P10, pt_set1_pt_1, pt_set2_pt_1, pt_3d_h_p1);
+    }
+    //---
 
-    pt_set2_pt.at<cv::Vec2f>(0,0)[0] = p_c2_space[0][0];
-    pt_set2_pt.at<cv::Vec2f>(0,0)[1] = p_c2_space[0][1];
+    p03d[0] = pt_3d_h_p0.at<cv::Vec4f>(0,0)[0] / pt_3d_h_p0.at<cv::Vec4f>(0,0)[3];
+    p03d[1] = pt_3d_h_p0.at<cv::Vec4f>(0,0)[1] / pt_3d_h_p0.at<cv::Vec4f>(0,0)[3];
+    p03d[2] = pt_3d_h_p0.at<cv::Vec4f>(0,0)[2] / pt_3d_h_p0.at<cv::Vec4f>(0,0)[3];
+    if( _track_orientation ) {
+      p13d[0] = pt_3d_h_p1.at<cv::Vec4f>(0,0)[0] / pt_3d_h_p1.at<cv::Vec4f>(0,0)[3];
+      p13d[1] = pt_3d_h_p1.at<cv::Vec4f>(0,0)[1] / pt_3d_h_p1.at<cv::Vec4f>(0,0)[3];
+      p13d[2] = pt_3d_h_p1.at<cv::Vec4f>(0,0)[2] / pt_3d_h_p1.at<cv::Vec4f>(0,0)[3];
+    }
+    else {
+      p13d[0] = p13d[1] = p13d[2] = -1;
+    }
 
-    Mat pt_3d_h(1,1,CV_64FC4);
-    cv::triangulatePoints(P0, P10, pt_set1_pt, pt_set2_pt, pt_3d_h);
+    output.p1.x = p03d[0];
+    output.p1.y = p03d[1];
+    output.p1.z = p03d[2];
 
-//    cout << "pt_3d_h: " << pt_3d_h << endl;
+    output.p2.x = p13d[0];
+    output.p2.y = p13d[1];
+    output.p2.z = p13d[2];
 
-    cout << pt_3d_h.at<cv::Vec4f>(0,0)[0] / pt_3d_h.at<cv::Vec4f>(0,0)[3] << " ";
-    cout << pt_3d_h.at<cv::Vec4f>(0,0)[1] / pt_3d_h.at<cv::Vec4f>(0,0)[3] << " ";
-    cout << pt_3d_h.at<cv::Vec4f>(0,0)[2] / pt_3d_h.at<cv::Vec4f>(0,0)[3] << endl;
-    cout << endl;
-    //cout << "P10: " << P10 << endl;
-    //cout << "pt_3d_h: " << pt_3d_h << endl,
+    int w = write( _output_data_socket, &output, sizeof(output));
+
 
     r.sleep();
   }

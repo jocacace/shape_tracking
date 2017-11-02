@@ -8,12 +8,25 @@
 #include <ros/package.h>
 #include "ellipse_tracking.h"
 #include "sphere_stereo_tracking.h"
-
+#include "robohelper/robohelper.hpp"
 #include "TooN/TooN.h"
+#include "sensor_msgs/PointCloud2.h"
 
 using namespace std;
 using namespace cv;
 using namespace TooN;
+
+//---3d output
+typedef struct point {
+  double x;
+  double y;
+  double z;
+}point;
+
+typedef struct points {
+  point p1; //Center
+  point p2; //Orientation
+}points;
 
 class shape_tracking {
 
@@ -55,7 +68,7 @@ class shape_tracking {
     //Input image
     Mat _src_l;
     Mat _src_r;
-    Mat _depth_src_r;
+    Mat _depth_src;
     bool _img_l_ready;
     bool _depth_ready;
     bool _img_r_ready;
@@ -63,6 +76,8 @@ class shape_tracking {
     bool _cam2_info_first;
     bool _apply_roi;
     bool _use_depth;
+
+    sensor_msgs::PointCloud2 pcl_depth;
 
     //---Params
     string _camera_left_info_topic;
@@ -72,6 +87,8 @@ class shape_tracking {
     string _img_topic_r;
     string _cam_info_topic_l;
     string _cam_info_topic_r;
+    int _port;
+    string _address;
 
     string _task;
     int _off_x_l;
@@ -125,6 +142,9 @@ class shape_tracking {
     Matx34d P0;
     Matx34d P10;
     //---
+
+
+    int _output_data_socket;
 
 
 };

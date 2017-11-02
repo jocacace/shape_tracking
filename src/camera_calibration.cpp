@@ -48,6 +48,8 @@ void shape_tracking::cam1_parameters( sensor_msgs::CameraInfo camera_info) {
         for(int i=0; i<3;i++) {
             for(int j=0; j<3; j++) {
                 _cam1_cameraMatrix->at<double>(i,j) = camera_info.K[3*i+j];
+
+                cout << "[" << i << ", " << j << "]: " << _cam1_cameraMatrix->at<double>(i,j) << endl;
             }
         }
         //---D
