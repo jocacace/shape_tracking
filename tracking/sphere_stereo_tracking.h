@@ -24,7 +24,8 @@
 #include "opencv2/imgproc/imgproc.hpp"
 #include "ros/ros.h"
 #include <visp/vpMeEllipse.h>
-
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
 
 
 #include <visp/vpMatrix.h>
@@ -73,7 +74,7 @@ class sphere_stero_tracking {
 public:
   sphere_stero_tracking(bool disp_, int, int);
   void init(const std::string &filename, cv::Mat &left, cv::Mat &right);
-  void track( cv::Mat &left, cv::Mat &right, Vector<3> & p0, Vector<3> & p0cam1, Vector<3> & p0cam2, Point & p0img_left, Point & p0img_right );
+  void track( cv::Mat &left, cv::Mat &right, TooN::Vector<3> & p0, TooN::Vector<3> & p0cam1, TooN::Vector<3> & p0cam2, Point & p0img_left, Point & p0img_right );
   void extractCircles(cv::Mat &src, vector<Vec3f> &circles_);
   void load_conf();
 

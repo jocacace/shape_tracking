@@ -244,91 +244,43 @@ void shape_tracking::dept_cb( sensor_msgs::Image msg ) {
 
 void shape_tracking::tune_rgb_gain() {
   Mat img;
-  while( !_img_l_ready ) {
-    usleep(0.1*1e6);
-  }
-  cout << "_img_l_ready: " << _img_l_ready << endl;
+   while( !_img_l_ready ) {
+     usleep(0.1*1e6);
+   }
+   cout << "_img_l_ready: " << _img_l_ready << endl;
 
-  if(_stereo_cam) {
-    while( !_img_r_ready ) {
-      usleep(0.1*1e6);
-    }
-    cout << "_img_r_ready: " << _img_r_ready << endl;
-  }
+   low_r_l = _low_r_l;
+   low_g_l = _low_g_l;
+   low_b_l = _low_b_l;
 
-  low_r_l = _low_r_l;
-  low_g_l = _low_g_l;
-  low_b_l = _low_b_l;
+   high_r_l = _high_r_l;
+   high_g_l = _high_g_l;
+   high_b_l = _high_b_l;
 
-  high_r_l = _high_r_l;
-  high_g_l = _high_g_l;
-  high_b_l = _high_b_l;
+   namedWindow("RGB", WINDOW_NORMAL);
+   //-- Trackbars to set thresholds for RGB values
+   createTrackbar("Low R","RGB", &low_r_l, 255, on_low_r_thresh_trackbar_l);
+   createTrackbar("High R","RGB", &high_r_l, 255, on_high_r_thresh_trackbar_l);
+   createTrackbar("Low G","RGB", &low_g_l, 255, on_low_g_thresh_trackbar_l);
+   createTrackbar("High G","RGB", &high_g_l, 255, on_high_g_thresh_trackbar_l);
+   createTrackbar("Low B","RGB", &low_b_l, 255, on_low_b_thresh_trackbar_l);
+   createTrackbar("High B","RGB", &high_b_l, 255, on_high_b_thresh_trackbar_l);
 
-  low_r_r = _low_r_r;
-  low_g_r = _low_g_r;
-  low_b_r = _low_b_r;
+   ros::Rate r(_rate);
 
-  high_r_r = _high_r_r;
-  high_g_r = _high_g_r;
-  high_b_r = _high_b_r;
+   while(ros::ok()) {
+     Mat img = _src_l;
 
-  namedWindow("RGB", WINDOW_NORMAL);
-  //-- Trackbars to set thresholds for RGB values
-  createTrackbar("Low R_l","RGB", &low_r_l, 255, on_low_r_thresh_trackbar_l);
-  createTrackbar("High R_l","RGB", &high_r_l, 255, on_high_r_thresh_trackbar_l);
-  createTrackbar("Low G_l","RGB", &low_g_l, 255, on_low_g_thresh_trackbar_l);
-  createTrackbar("High G_l","RGB", &high_g_l, 255, on_high_g_thresh_trackbar_l);
-  createTrackbar("Low B_l","RGB", &low_b_l, 255, on_low_b_thresh_trackbar_l);
-  createTrackbar("High B_l","RGB", &high_b_l, 255, on_high_b_thresh_trackbar_l);
+     if( img.empty() )
+       continue;
 
-  if( _stereo_cam ) {
-    createTrackbar("Low R_r","RGB", &low_r_r, 255, on_low_r_thresh_trackbar_r);
-    createTrackbar("High R_r","RGB", &high_r_r, 255, on_high_r_thresh_trackbar_r);
-    createTrackbar("Low G_r","RGB", &low_g_r, 255, on_low_g_thresh_trackbar_r);
-    createTrackbar("High G_r","RGB", &high_g_r, 255, on_high_g_thresh_trackbar_r);
-    createTrackbar("Low B_r","RGB", &low_b_r, 255, on_low_b_thresh_trackbar_r);
-    createTrackbar("High B_r","RGB", &high_b_r, 255, on_high_b_thresh_trackbar_r);
-  }
-
-  ros::Rate r(_rate);
-
-  Mat img_l;
-  Mat img_r;
-
-  while(ros::ok()) {
-
-    if (_src_l.empty() )
-      continue;
-
-    if( _stereo_cam && _src_r.empty() )
-      continue;
-
-    img_l = _src_l;
-    if( _stereo_cam  )
-      img_r = _src_r;
-
-    inRange(img_l,Scalar(low_b_l, low_g_l, low_r_l), Scalar(high_b_l, high_g_l, high_r_l), img_l);
+     inRange(img,Scalar(low_b_l, low_g_l, low_r_l), Scalar(high_b_l, high_g_l, high_r_l), img);
+     imshow( "RGB", img );
+     waitKey(1);
 
 
-    Mat stereo_output;
-    stereo_output.push_back( img_l );
-
-    if( _stereo_cam ) {
-      inRange(img_r,Scalar(low_b_r, low_g_r, low_r_r), Scalar(high_b_r, high_g_r, high_r_r), img_r);
-      stereo_output.push_back( img_r );
-      Size size(stereo_output.rows / 2, stereo_output.cols / 2);//the dst image size,e.g.100x100
-      resize(stereo_output,stereo_output,size);//resize image
-    }
-
-    if( !stereo_output.empty() )
-      imshow("RGB", stereo_output);
-    waitKey(1);
-
-    img_l.release();
-    img_r.release();
-    stereo_output.release();
-
-  }
+     img.release();
+   }
 
 } //Toto: give possibility to save this params
 
@@ -436,7 +388,6 @@ void shape_tracking::set_roi() {
     img.release();
   }
 }
-
 void shape_tracking::track_ellipses() {
 
   Mat img;
@@ -496,6 +447,11 @@ void shape_tracking::track_ellipses() {
   float zd_c2;
   points output;
 
+  if( _use_depth )
+    sleep(1);
+
+  vector< vector<Point> > fullc;
+  Mat dst, dst_range;
 
   while(ros::ok()) {
 
@@ -521,31 +477,68 @@ void shape_tracking::track_ellipses() {
       ellipse_max_c[1] = (ellipse_max_c[1] < outer_ellipse[pts].y ) ? outer_ellipse[pts].y : ellipse_max_c[1];
     }
 
-    if( _track_orientation ) {
-      Mat ellipse_roi = cropedImage(Rect( ellipse_min_c[0]-_roi_off_x, ellipse_min_c[1]-_roi_off_y, (ellipse_max_c[0]-ellipse_min_c[0])+_roi_off_x*2, (ellipse_max_c[1]-ellipse_min_c[1])+_roi_off_y*2) );
-      Mat ellipse_roi_tmp;
-
-
-      if( _set_th ) {
-        _th = bin_th;
-        cvtColor( ellipse_roi, ellipse_roi_tmp, CV_BGR2GRAY );
-        threshold( ellipse_roi_tmp, ellipse_roi_tmp, _th, 255, 1 );
-        imshow("Binary threshold",ellipse_roi_tmp);
-        waitKey(1);
-      }
-      else {
-        cvtColor( ellipse_roi, ellipse_roi_tmp, CV_BGR2GRAY );
-        threshold( ellipse_roi_tmp, ellipse_roi_tmp, _th, 255, 1 );
-        to_dilate = false;
-        invert_img = true;
-        etrack->get_ellipse(ellipse_roi_tmp, _to_blur, invert_img, to_dilate, _dilation_elem, _dilation_size, false, false, inner_ellipse, inner_ellipse_center);
-      }
-    }
     original_center_e1.x = (ellipse_center.x + _off_x_l  );
     original_center_e1.y = (ellipse_center.y + _off_y_l  );
+
     if( _track_orientation ) {
-      original_center_e2.x = (inner_ellipse_center.x + _off_x_l + ellipse_min_c[0] );
-      original_center_e2.y = (inner_ellipse_center.y + _off_y_l + ellipse_min_c[1] );
+
+
+      fullc.clear();
+      fullc.push_back(outer_ellipse);
+      Mat mask = Mat::zeros ( cropedImage.size(), cropedImage.type() );
+      drawContours( mask, fullc, 0, Scalar(255,255,255), -1, 8 );
+      cropedImage.copyTo(dst, mask );
+
+      //imshow("dst", dst);
+      //waitKey(1);
+
+      inRange(dst, Scalar(0, 0, 254), Scalar(255, 231, 255), dst_range);
+      Mat element = getStructuringElement( _dilation_elem, Size( 2*_dilation_size + 1, 2*_dilation_size+1 ), Point( _dilation_size, _dilation_size ));
+      dilate( dst_range, dst_range, element );
+      //imshow("cropedImage", dst_range);
+      //waitKey(1);
+
+      vector<vector<Point> > o_contours;
+      findContours( dst_range, o_contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+
+      dst.release();
+      mask.release();
+
+      if( o_contours.size() == 0 ){
+        cout << "[Warning!] Impossible to find orientation" << endl;
+        original_center_e2.x = -1;
+        original_center_e2.y = -1;
+      }
+      else {
+
+        int max_c = -1000;
+        int ellipse_candidate_c = -1;
+        RotatedRect minEllipse;
+
+        vector<Moments> mu(o_contours.size() );
+        for(int cc=0; cc<o_contours.size(); cc++ ) {
+          mu[cc] = moments( o_contours[cc], false );
+          if( max_c < contourArea(o_contours[cc])) {
+            max_c = contourArea(o_contours[cc]);
+            ellipse_candidate_c = cc;
+          } //Get better contour to describe our ellipse
+        }
+
+        if( ellipse_candidate_c != -1 ) {
+          if( o_contours[ellipse_candidate_c].size() < 5 ) {
+            cout << "[Warning!] less then 5 point in the found ellipse" << endl;
+            original_center_e2.x = -1;
+            original_center_e2.y = -1;
+          }
+          else {
+            minEllipse = fitEllipse( Mat(o_contours[ellipse_candidate_c]) );
+            circle( img, Point( minEllipse.center.x + _off_x_l, minEllipse.center.y + _off_y_l)  , 2, color, 2, 8 );
+
+            original_center_e2.x = minEllipse.center.x + _off_x_l;
+            original_center_e2.y = minEllipse.center.y + _off_y_l;
+          }
+        }
+      }
     }
 
     if( _show_img_elaboration ) {
@@ -563,14 +556,14 @@ void shape_tracking::track_ellipses() {
       circle( img, original_center_e1, 2, color, 2, 8 );
       if( _track_orientation )
         circle( img, original_center_e2, 2, color, 2, 8 );
-      imshow( "img", img );
+
+      if( !img.empty())
+        imshow( "img", img );
       waitKey(1);
 
     }
 
-
     if( _use_depth ) {
-
       cx = _cam1_cameraMatrix->at<double>(0,2);
       cy = _cam1_cameraMatrix->at<double>(1,2);
       fx_inv = 1.0 / _cam1_cameraMatrix->at<double>(0,0);
@@ -579,13 +572,20 @@ void shape_tracking::track_ellipses() {
 
       cx_c1 = (zd_c1*0.001) * ( (original_center_e1.x - cx) * fx_inv );
       cy_c1 = (zd_c1*0.001) * ( (original_center_e1.y - cy) * fy_inv );
-      cz_c1 = zd_c1;
+      cz_c1 = zd_c1*0.001;
 
       if( _track_orientation ) {
-        zd_c2 = _depth_src.at<float>(original_center_e2.y,original_center_e2.x);
-        cx_c2 = (zd_c2*0.001) * ( (original_center_e2.x - cx) * fx_inv );
-        cy_c2 = (zd_c2*0.001) * ( (original_center_e2.y - cy) * fy_inv );
-        cz_c2 = zd_c2;
+        if(original_center_e2.x != -1 && original_center_e2.y != -1 ) {
+          zd_c2 = _depth_src.at<float>(original_center_e2.y,original_center_e2.x);
+          cx_c2 = (zd_c2*0.001) * ( (original_center_e2.x - cx) * fx_inv );
+          cy_c2 = (zd_c2*0.001) * ( (original_center_e2.y - cy) * fy_inv );
+          cz_c2 = zd_c2*0.001;
+        }
+        else {
+          cx_c2 = -1;
+          cy_c2 = -1;
+          cz_c2 = -1;
+        }
       }
       else {
         cx_c2 = -1;
@@ -605,13 +605,18 @@ void shape_tracking::track_ellipses() {
     output.p2.y = cy_c2;
     output.p2.z = cz_c2;
 
-    int w = write( _output_data_socket, &output, sizeof(output));
+    //cout << "P0: [" << output.p1.x << " " << output.p1.y << " " << output.p1.z << "]" << endl;
+    //cout << "P1: [" << output.p2.x << " " << output.p2.y << " " << output.p2.z << "]" << endl;
+    //cout << endl;
 
+    int w = write( _output_data_socket, &output, sizeof(output));
+    //cout << "written: " << w << endl;
 
     r.sleep();
   }
 
 }
+
 
 
 void shape_tracking::save_images() {
@@ -1033,7 +1038,7 @@ void shape_tracking::track_sphere() {
   right = _src_r;
   sst.init("",left,right);
 
-  Vector<3> p0, p0cam1, p0cam2;
+  TooN::Vector<3> p0, p0cam1, p0cam2;
   Point p_img_left;
   Point p_img_right;
 

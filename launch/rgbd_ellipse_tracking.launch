@@ -10,10 +10,17 @@
 
 
     <param name="set_roi" type="bool" value="false" />
+    <param name="off_x_l" type="int" value="220" />
+    <param name="off_y_l" type="int" value="69" />
+    <param name="rect_w_l" type="int" value="303" />
+    <param name="rect_h_l" type="int" value="266" />
+
+    <!-- For peel
     <param name="off_x_l" type="int" value="274" />
     <param name="off_y_l" type="int" value="107" />
     <param name="rect_w_l" type="int" value="318" />
     <param name="rect_h_l" type="int" value="326" />
+  -->
 
     <param name="to_blur" type="bool" value="false" />
 
@@ -22,10 +29,10 @@
 
 
     <!--In range parameters-->
-    <param name="set_RGB" type="bool" value="false" />
+    <param name="set_RGB" type="bool" value="true" />
     <param name="low_r_l" type="int" value="0" />
-    <param name="high_r_l" type="int" value="158" />
-    <param name="low_g_l" type="int" value="155" />
+    <param name="high_r_l" type="int" value="162" />
+    <param name="low_g_l" type="int" value="180" />
 
 
     <param name="high_g_l" type="int" value="255" />
@@ -45,12 +52,12 @@
     <param name="roi_off_y" type="int" value="0" />
 
     <param name="set_th" type="bool" value="false" />
-    <param name="th" type="int" value="250" />
+    <param name="th" type="int" value="254" />
 
     <param name="show_image_elaboration" type="bool" value="true" />
 		<param name="task" type="string" value="ellipse_tracking" />
     <param name="stereo_cam" type="bool" value="false" />
-	  <param name="track_orientation" type="bool" value="false" />
+	  <param name="track_orientation" type="bool" value="true" />
 
   </node>
 

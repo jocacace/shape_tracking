@@ -273,7 +273,7 @@ void sphere_stero_tracking::extractCircles(cv::Mat &src, vector<Vec3f> &circles_
 }
 
 //void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, vpHomogeneousMatrix &cMo_) {
-void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, Vector<3> & p0, Vector<3> & p0cam1, Vector<3> & p0cam2, Point & p0img_left, Point & p0img_right) {
+void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, TooN::Vector<3> & p0, TooN::Vector<3> & p0cam1, TooN::Vector<3> & p0cam2, Point & p0img_left, Point & p0img_right) {
 
   cv::Mat lc0,rc0,lc1,rc1,lg1,rg1,lccrop,rccrop, lc0crop,rc0crop,lc1crop,rc1crop;
 
