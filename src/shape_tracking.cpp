@@ -176,11 +176,16 @@ shape_tracking::shape_tracking() {
 
   load_param( _apply_roi, false, "apply_roi");
 
+
   load_param( _track_orientation, false, "track_orientation");
+
+
+	load_param( _ht_p1, 120, "ht_p1");
+	load_param( _ht_p2, 40, "ht_p2");
 
   //temp
   load_param( _port, 9090, "port");
-  load_param( _address, "192.168.1.1", "address");
+  load_param( _address, "localhost", "address");
 
   bin_th = _th;
   _img_sub_l = _nh.subscribe( _img_topic_l.c_str(), 0, &shape_tracking::cam_cb_l, this );
@@ -453,6 +458,7 @@ void shape_tracking::track_ellipses() {
   vector< vector<Point> > fullc;
   Mat dst, dst_range;
 
+
   while(ros::ok()) {
 
     ellipse_min_c[0] = ellipse_min_c[1] = 1000;
@@ -580,6 +586,7 @@ void shape_tracking::track_ellipses() {
           cx_c2 = (zd_c2*0.001) * ( (original_center_e2.x - cx) * fx_inv );
           cy_c2 = (zd_c2*0.001) * ( (original_center_e2.y - cy) * fy_inv );
           cz_c2 = zd_c2*0.001;
+
         }
         else {
           cx_c2 = -1;
@@ -604,6 +611,9 @@ void shape_tracking::track_ellipses() {
     output.p2.x = cx_c2;
     output.p2.y = cy_c2;
     output.p2.z = cz_c2;
+
+    //cout << "PX p0: " << original_center_e1.x << " " << original_center_e1.y << endl;
+    //cout << "PX p1: " << original_center_e2.x << " " << original_center_e2.y << endl;
 
     //cout << "P0: [" << output.p1.x << " " << output.p1.y << " " << output.p1.z << "]" << endl;
     //cout << "P1: [" << output.p2.x << " " << output.p2.y << " " << output.p2.z << "]" << endl;
@@ -1029,7 +1039,10 @@ void shape_tracking::track_sphere() {
   vpHomogeneousMatrix cMo;
 
   Mat img_l;
-  sphere_stero_tracking sst(true, 120, 40);
+
+
+  //sphere_stero_tracking sst(_show_img_elaboration, 120, 40);
+	sphere_stero_tracking sst(_show_img_elaboration, _ht_p1, _ht_p2);
   cv::Mat left, right;
   left = cv::Mat::zeros(_src_l.size(), CV_8UC3);
   right = cv::Mat::zeros(_src_r.size(), CV_8UC3);
@@ -1047,6 +1060,9 @@ void shape_tracking::track_sphere() {
   p0cam2 = Zeros;
   geometry_msgs::Point sp_c;
 
+  point_struct ps;
+  bool init = true;
+  bool found_c = false;
   while(ros::ok()) {
     left = _src_l;
     right = _src_r;
@@ -1055,20 +1071,39 @@ void shape_tracking::track_sphere() {
     Mat cright = right(Rect( _off_x_r, _off_y_r, _rect_w_r, _rect_h_r));
 
     //Track
-    sst.track(left, right, p0, p0cam1, p0cam2, p_img_left, p_img_right );
+    //cout << "TRACK: "  << sst.track(init, left, right, p0, p0cam1, p0cam2, p_img_left, p_img_right ) << endl;
+
+
+    found_c = sst.track(init, left, right, p0, p0cam1, p0cam2, p_img_left, p_img_right );
+    if( !found_c )
+     init = true;
+    cout << "Init: " << init << endl;
+
+    init = false;
     Scalar color = Scalar( 0, 0, 255 );
 
     if(_show_img_elaboration) {
       circle( left, p_img_left, 2, color, 2, 8 );
       circle( right, p_img_right, 2, color, 2, 8 );
       imshow( "right", right);
-      waitKey(10);
+      waitKey(1);
     }
 
+
+  //  cout << "Points: " << p0[0] << " " << p0[1] << " " << p0[2]<< endl;
+
+
+    /*
     sp_c.x = p0[0];
     sp_c.y = p0[1];
     sp_c.z = p0[2];
     _sphere_pub.publish( sp_c );
+    */
+    ps.x = p0[0];
+    ps.y = p0[1];
+    ps.z = p0[2];
+    write( _output_data_socket, &ps, sizeof(ps));
+
 
     r.sleep();
   }

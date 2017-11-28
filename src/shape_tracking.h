@@ -19,6 +19,7 @@ using namespace std;
 using namespace cv;
 using namespace TooN;
 
+
 //---3d output
 typedef struct point {
   double x;
@@ -30,6 +31,18 @@ typedef struct points {
   point p1; //Center
   point p2; //Orientation
 }points;
+
+typedef struct point_struct{
+  double x;
+  double y;
+  double z;
+
+  double xn1;
+  double yn1;
+  double xn2;
+  double yn2;
+}point_struct;
+
 
 class shape_tracking {
 
@@ -134,6 +147,8 @@ class shape_tracking {
     int _hc_param1;
     int _hc_param2;
 
+
+		int _ht_p1, _ht_p2;
     bool _track_orientation;
     //---
 

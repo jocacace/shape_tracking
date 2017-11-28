@@ -10,10 +10,10 @@
 
 
     <param name="set_roi" type="bool" value="false" />
-    <param name="off_x_l" type="int" value="220" />
-    <param name="off_y_l" type="int" value="69" />
-    <param name="rect_w_l" type="int" value="303" />
-    <param name="rect_h_l" type="int" value="266" />
+    <param name="off_x_l" type="int" value="243" />
+    <param name="off_y_l" type="int" value="115" />
+    <param name="rect_w_l" type="int" value="321" />
+    <param name="rect_h_l" type="int" value="261" />
 
     <!-- For peel
     <param name="off_x_l" type="int" value="274" />
@@ -29,14 +29,14 @@
 
 
     <!--In range parameters-->
-    <param name="set_RGB" type="bool" value="true" />
-    <param name="low_r_l" type="int" value="0" />
-    <param name="high_r_l" type="int" value="162" />
-    <param name="low_g_l" type="int" value="180" />
+    <param name="set_RGB" type="bool" value="false" />
+    <param name="low_r_l" type="int" value="114" />
+    <param name="high_r_l" type="int" value="186" />
+    <param name="low_g_l" type="int" value="162" />
 
 
     <param name="high_g_l" type="int" value="255" />
-    <param name="low_b_l" type="int" value="0" />
+    <param name="low_b_l" type="int" value="222" />
     <param name="high_b_l" type="int" value="255" />
 
 		<param name="use_depth" type="bool" value="true" />

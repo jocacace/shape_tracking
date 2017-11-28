@@ -273,7 +273,7 @@ void sphere_stero_tracking::extractCircles(cv::Mat &src, vector<Vec3f> &circles_
 }
 
 //void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, vpHomogeneousMatrix &cMo_) {
-void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, TooN::Vector<3> & p0, TooN::Vector<3> & p0cam1, TooN::Vector<3> & p0cam2, Point & p0img_left, Point & p0img_right) {
+bool sphere_stero_tracking::track( bool init_tracker, cv::Mat &left, cv::Mat &right, TooN::Vector<3> & p0, TooN::Vector<3> & p0cam1, TooN::Vector<3> & p0cam2, Point & p0img_left, Point & p0img_right) {
 
   cv::Mat lc0,rc0,lc1,rc1,lg1,rg1,lccrop,rccrop, lc0crop,rc0crop,lc1crop,rc1crop;
 
@@ -317,7 +317,13 @@ void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, TooN::Vector<3
   gapRect = 100;
   gapCenter = 120;
 
-  if (circlesLeft.size() > 0 ) {
+  cout << "Left: " <<  circlesLeft.size() << " Right: " << circlesRight.size() << endl;
+  bool circles_detected = (circlesLeft.size() > 0 && circlesRight.size() > 0 );
+
+  if ( !circles_detected )
+    return false;
+
+  if ( circles_detected ) {
     for( size_t i = 0; i < circlesLeft.size(); i++ ) {
       if (flag0 || isLost) {
         Eleft.iPc0 = Eleft.iPc;
@@ -341,7 +347,8 @@ void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, TooN::Vector<3
     flagLeft = false;
   }
 
-  if (circlesRight.size() > 0 ) {
+
+  if (circles_detected ) {
     for( size_t i = 0; i < circlesRight.size(); i++ ) {
       if (flag0 || isLost) {
         Eright.iPc0 = Eright.iPc;
@@ -365,10 +372,17 @@ void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, TooN::Vector<3
     flagRight = false;
   }
 
-  if (!flagLeft && !flagRight && flag0) {
+
+
+
+  //if (!flagLeft && !flagRight && flag0) {
+  cout << "In track: " << circles_detected << " " << init_tracker << endl;
+  if( init_tracker ) {
+
     Eleft.initTrackingCircle(Ileft);
     Eright.initTrackingCircle(Iright);
 
+    cout << "Tracker initialized!" << endl;
     flagLeft = true;
     flag0 = false;
   }
@@ -378,6 +392,8 @@ void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, TooN::Vector<3
     double angle,anglel,angler;
     int surface,surfacel,surfacer;
     vpImagePoint ip,ipl,ipr;
+
+    //-----TODO Aggiustare tracker
     Eleft.track(Ileft);
 		Eright.track(Iright);
 
@@ -404,6 +420,7 @@ void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, TooN::Vector<3
 
     p0img_right.x = Eright.iPc.get_u();
     p0img_right.y = Eright.iPc.get_v();
+
 
 		vpPixelMeterConversion::convertPoint(cam1,Eleft.iPc, x1_n,y1_n);
 		vpPixelMeterConversion::convertPoint(cam2,Eright.iPc, x2_n,y2_n);
@@ -437,6 +454,9 @@ void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, TooN::Vector<3
 		cv::Mat cam0pnts(1,1,CV_64FC2);
 		cv::Mat cam1pnts(1,1,CV_64FC2);
 
+    //cout << "LEFT: " << (float)Eleft.iPc.get_u() << " " << (float)Eleft.iPc.get_v() << endl;
+    //cout << "RIGHT: " << (float)Eright.iPc.get_u() << " " << (float)Eright.iPc.get_v() << endl;
+
 		cam0pnts.at<cv::Vec2d>(0,0)[0] = (float)Eleft.iPc.get_u();
 		cam0pnts.at<cv::Vec2d>(0,0)[1] = (float)Eleft.iPc.get_v();
 
@@ -446,12 +466,16 @@ void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, TooN::Vector<3
     cv::Mat pt_set1_pt,pt_set2_pt;
     Mat pt_3d_h(1,1,CV_32FC4);
     vector<Point3f> pt_3d;
+
+
     cv::undistortPoints(cam0pnts, pt_set1_pt, Kleft, distcoeff1);
     cv::undistortPoints(cam1pnts, pt_set2_pt, Kright, distcoeff2);
 
+
+
     cv::triangulatePoints(Mat(P),Mat(P2), pt_set1_pt, pt_set2_pt, pt_3d_h);
     cv::triangulatePoints(Kleft*Mat(P),Kright*Mat(P2),cam0pnts,cam1pnts,pnts3D);
-    
+
 
     vpHomogeneousMatrix cMo0,cMo02;
     cMo0 = cMo;
@@ -464,7 +488,7 @@ void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, TooN::Vector<3
 		cMo0[1][3] = pt_3d_h.at<cv::Vec4d>(0,0)[1]/pt_3d_h.at<cv::Vec4d>(0,0)[3];
 		cMo0[2][3] = pt_3d_h.at<cv::Vec4d>(0,0)[2]/pt_3d_h.at<cv::Vec4d>(0,0)[3];
 
-    cout << "3d coordinate: " << cMo0[0][3] << " " << cMo0[1][3] << " " << cMo0[2][3] << endl;
+    //cout << "3d coordinate: " << cMo0[0][3] << " " << cMo0[1][3] << " " << cMo0[2][3] << endl;
 
 		x1_n = cMo0[0][3]/cMo0[2][3];
 		y1_n = cMo0[1][3]/cMo0[2][3];
@@ -540,6 +564,7 @@ void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, TooN::Vector<3
 
     //cMo_ = cMo;
     p0 = makeVector(cMo[0][3], cMo[1][3],cMo[2][3] );
+
   }
 
   if( _disp ) {
@@ -548,5 +573,7 @@ void sphere_stero_tracking::track( cv::Mat &left, cv::Mat &right, TooN::Vector<3
     waitKey(1);
   }
 
+
+  return true;
 
 }
