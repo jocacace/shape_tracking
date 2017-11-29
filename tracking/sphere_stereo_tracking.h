@@ -46,6 +46,8 @@
 #include <visp/vpMeterPixelConversion.h>
 #include <visp/vpMe.h>
 #include <visp/vpPoint.h>
+#include <visp/vpTrackingException.h>
+#include <visp/vpMatrixException.h>
 
 #include "TooN/TooN.h"
 using namespace std;
@@ -122,4 +124,7 @@ private:
   bool _disp;
   int _param_1;
   int _param_2;
+
+
+  bool _initialized;
 };

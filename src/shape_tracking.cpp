@@ -1070,16 +1070,10 @@ void shape_tracking::track_sphere() {
     Mat cleft = left(Rect( _off_x_l, _off_y_l, _rect_w_l, _rect_h_l));
     Mat cright = right(Rect( _off_x_r, _off_y_r, _rect_w_r, _rect_h_r));
 
-    //Track
-    //cout << "TRACK: "  << sst.track(init, left, right, p0, p0cam1, p0cam2, p_img_left, p_img_right ) << endl;
-
-
     found_c = sst.track(init, left, right, p0, p0cam1, p0cam2, p_img_left, p_img_right );
-    if( !found_c )
-     init = true;
-    cout << "Init: " << init << endl;
 
-    init = false;
+
+
     Scalar color = Scalar( 0, 0, 255 );
 
     if(_show_img_elaboration) {
@@ -1089,19 +1083,15 @@ void shape_tracking::track_sphere() {
       waitKey(1);
     }
 
+    if( found_c ) {
+      ps.x = p0[0];
+      ps.y = p0[1];
+      ps.z = p0[2];
+    }
+    else {
+      ps.x = ps.y = ps.z = -1;
+    }
 
-  //  cout << "Points: " << p0[0] << " " << p0[1] << " " << p0[2]<< endl;
-
-
-    /*
-    sp_c.x = p0[0];
-    sp_c.y = p0[1];
-    sp_c.z = p0[2];
-    _sphere_pub.publish( sp_c );
-    */
-    ps.x = p0[0];
-    ps.y = p0[1];
-    ps.z = p0[2];
     write( _output_data_socket, &ps, sizeof(ps));
 
 
