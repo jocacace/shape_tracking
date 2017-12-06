@@ -441,7 +441,7 @@ void shape_tracking::track_ellipses() {
     createTrackbar("bth","Binary threshold", &bin_th, 255, on_thresh_trackbar );
   }
   vector<Point> translated_c;
-  Scalar color = Scalar( 0, 0, 255 );
+  Scalar color = Scalar( 0, 0, 0 );
   Point original_center_e1;
   Point original_center_e2;
 
@@ -1063,6 +1063,7 @@ void shape_tracking::track_sphere() {
   point_struct ps;
   bool init = true;
   bool found_c = false;
+  int lost_mis = 0;
   while(ros::ok()) {
     left = _src_l;
     right = _src_r;
@@ -1087,12 +1088,20 @@ void shape_tracking::track_sphere() {
       ps.x = p0[0];
       ps.y = p0[1];
       ps.z = p0[2];
+      write( _output_data_socket, &ps, sizeof(ps));
     }
     else {
-      ps.x = ps.y = ps.z = -1;
+      lost_mis++;
+      if( lost_mis > 5 ) {
+        ps.x = ps.y = ps.z = 0.0;
+        ps.x = p0[0];
+        ps.y = p0[1];
+        ps.z = p0[2];
+        write( _output_data_socket, &ps, sizeof(ps));
+      }
     }
 
-    write( _output_data_socket, &ps, sizeof(ps));
+
 
 
     r.sleep();

@@ -594,9 +594,9 @@ bool sphere_stero_tracking::track( bool init_tracker, cv::Mat &left, cv::Mat &ri
   }
 
   if( _disp ) {
-    imshow("lgcrop", lgcrop);
-    imshow("rgcrop", rgcrop);
-    waitKey(1);
+    //imshow("lgcrop", lgcrop);
+    //imshow("rgcrop", rgcrop);
+   // waitKey(1);
   }
 
 
