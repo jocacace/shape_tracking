@@ -4,16 +4,16 @@
   <node pkg="shape_tracking" name="shape_tracking" type="shape_tracking" output="screen">
 
     <param name="rate" type="int" value="30" />
-    <param name="img_left_topic" type="string" value="/camera/rgb/image_raw" />
-    <param name="depth_img_topic" type="string" value="/camera/depth/image_raw" />
+    <param name="img_left_topic" type="string" value="/camera/rgb/image_raw/rep" />
+    <param name="depth_img_topic" type="string" value="/camera/depth/image_raw/rep" />
 		<param name="camera_left_info_topic" type="string" value="/camera/rgb/camera_info" />
-
+		<param name="use_depth" type="bool" value="false" />
 
     <param name="set_roi" type="bool" value="false" />
-    <param name="off_x_l" type="int" value="243" />
-    <param name="off_y_l" type="int" value="115" />
-    <param name="rect_w_l" type="int" value="321" />
-    <param name="rect_h_l" type="int" value="261" />
+    <param name="off_x_l" type="int" value="277" />
+    <param name="off_y_l" type="int" value="168" />
+    <param name="rect_w_l" type="int" value="324" />
+    <param name="rect_h_l" type="int" value="278" />
 
     <!-- For peel
     <param name="off_x_l" type="int" value="274" />
@@ -30,17 +30,34 @@
 
     <!--In range parameters-->
     <param name="set_RGB" type="bool" value="false" />
-    <param name="low_r_l" type="int" value="114" />
-    <param name="high_r_l" type="int" value="186" />
-    <param name="low_g_l" type="int" value="162" />
+    <param name="low_r_l" type="int" value="0" />
+    <param name="high_r_l" type="int" value="139" />
 
-
+    <param name="low_g_l" type="int" value="151" />
     <param name="high_g_l" type="int" value="255" />
-    <param name="low_b_l" type="int" value="222" />
+
+    <param name="low_b_l" type="int" value="0" />
     <param name="high_b_l" type="int" value="255" />
+	<!--
+    <param name="low_r_or" type="int" value="240" />
+    <param name="high_r_or" type="int" value="250" />
 
-		<param name="use_depth" type="bool" value="true" />
+    <param name="low_g_or" type="int" value="82" />
+    <param name="high_g_or" type="int" value="177" />
 
+    <param name="low_b_or" type="int" value="0" />
+    <param name="high_b_or" type="int" value="255" />
+-->
+
+    <param name="set_RGB_or" type="bool" value="false" />
+    <param name="low_r_or" type="int" value="0" />
+    <param name="high_r_or" type="int" value="255" />
+
+    <param name="low_g_or" type="int" value="8" />
+    <param name="high_g_or" type="int" value="114" />
+
+    <param name="low_b_or" type="int" value="34" />
+    <param name="high_b_or" type="int" value="227" />
 
     <!--dilation parameters-->
     <param name="set_dilation" type="bool" value="false" />
@@ -58,6 +75,10 @@
 		<param name="task" type="string" value="ellipse_tracking" />
     <param name="stereo_cam" type="bool" value="false" />
 	  <param name="track_orientation" type="bool" value="true" />
+
+		<param name="port" value="9090" type="int" />
+
+
 
   </node>
 

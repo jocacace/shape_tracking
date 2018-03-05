@@ -230,7 +230,7 @@ void sphere_stero_tracking::init(const std::string &filename, cv::Mat &left, cv:
   P = P0;
   P2 = P20;
 
-
+  _initialized = false;
 }
 
 
@@ -277,6 +277,24 @@ bool sphere_stero_tracking::track( bool init_tracker, cv::Mat &left, cv::Mat &ri
 
   cv::Mat lc0,rc0,lc1,rc1,lg1,rg1,lccrop,rccrop, lc0crop,rc0crop,lc1crop,rc1crop;
 
+/*
+*/
+
+  if( !_initialized ) {
+    int width = Irgbright.getWidth();
+    int height = Irgbright.getHeight();
+
+    rectangleleft.x = (int) ceil(width * 0.1);
+    rectangleleft.y = (int) ceil(height * 0.1);
+    rectangleleft.width = width - 2 * rectangleleft.x;
+    rectangleleft.height = height - 2 * rectangleleft.y;
+
+    rectangleright.x = (int) ceil(width * 0.1);
+    rectangleright.y = (int) ceil(height * 0.1);
+    rectangleright.width = width - 2 * rectangleright.x;
+    rectangleright.height = height - 2 * rectangleright.y;
+
+  }
   lccrop = left(rectangleleft);
   rccrop = right(rectangleright);
 
@@ -317,15 +335,18 @@ bool sphere_stero_tracking::track( bool init_tracker, cv::Mat &left, cv::Mat &ri
   gapRect = 100;
   gapCenter = 120;
 
-  cout << "Left: " <<  circlesLeft.size() << " Right: " << circlesRight.size() << endl;
   bool circles_detected = (circlesLeft.size() > 0 && circlesRight.size() > 0 );
 
-  if ( !circles_detected )
+
+  if ( !circles_detected ) {
+    _initialized = false;
     return false;
+  }
+
 
   if ( circles_detected ) {
     for( size_t i = 0; i < circlesLeft.size(); i++ ) {
-      if (flag0 || isLost) {
+      if (flag0 || isLost || !_initialized) {
         Eleft.iPc0 = Eleft.iPc;
         Eleft.iPc.set_u(cvRound(circlesLeft[i][0]) + rectangleleft.x);
         Eleft.iPc.set_v(cvRound(circlesLeft[i][1]) + rectangleleft.y);
@@ -350,7 +371,7 @@ bool sphere_stero_tracking::track( bool init_tracker, cv::Mat &left, cv::Mat &ri
 
   if (circles_detected ) {
     for( size_t i = 0; i < circlesRight.size(); i++ ) {
-      if (flag0 || isLost) {
+      if (flag0 || isLost || !_initialized) {
         Eright.iPc0 = Eright.iPc;
         Eright.iPc.set_u(cvRound(circlesRight[i][0]) + rectangleright.x);
         Eright.iPc.set_v(cvRound(circlesRight[i][1]) + rectangleright.y);
@@ -372,205 +393,210 @@ bool sphere_stero_tracking::track( bool init_tracker, cv::Mat &left, cv::Mat &ri
     flagRight = false;
   }
 
-
-
-
-  //if (!flagLeft && !flagRight && flag0) {
-  cout << "In track: " << circles_detected << " " << init_tracker << endl;
-  if( init_tracker ) {
-
-    Eleft.initTrackingCircle(Ileft);
-    Eright.initTrackingCircle(Iright);
-
-    cout << "Tracker initialized!" << endl;
-    flagLeft = true;
-    flag0 = false;
+  if( !_initialized ) {
+    try {
+      Eleft.initTrackingCircle(Ileft);
+      Eright.initTrackingCircle(Iright);
+      flagLeft = true;
+      flag0 = false;
+      _initialized = true;
+    }
+    catch( vpException e ) {
+      cout << "Initialization exception: " << e << endl;
+      _initialized = false;
+      return false;
+    }
   }
 
 
-  if(!flag0) {
+  if(!flag0 && _initialized) {
     double angle,anglel,angler;
     int surface,surfacel,surfacer;
     vpImagePoint ip,ipl,ipr;
 
-    //-----TODO Aggiustare tracker
-    Eleft.track(Ileft);
-		Eright.track(Iright);
+    try {
+      Eleft.track(Ileft);
+  		Eright.track(Iright);
 
-    Eright.iPc.set_ij(Eright.iPc.get_i(),Eright.iPc.get_j());
-    Eleft.iPc.set_ij(Eleft.iPc.get_i(),Eleft.iPc.get_j());
-    int cornRect;
-		int widthRect;
-		cornRect = 50;
-		widthRect = 100; //TODO: param!
-		double x1_n, y1_n, x2_n, y2_n;
-		double rad1, rad2;
-		rectangleleft.x = Eleft.iPc.get_u() - Eleft.getA() - cornRect;
-		rectangleleft.y = Eleft.iPc.get_v() - Eleft.getA() - cornRect;
-		rectangleleft.height = 2*Eleft.getA() + widthRect;
-		rectangleleft.width = 2*Eleft.getA() + widthRect;
+      Eright.iPc.set_ij(Eright.iPc.get_i(),Eright.iPc.get_j());
+      Eleft.iPc.set_ij(Eleft.iPc.get_i(),Eleft.iPc.get_j());
+      int cornRect;
+  		int widthRect;
+  		cornRect = 50;
+  		widthRect = 100; //TODO: param!
+  		double x1_n, y1_n, x2_n, y2_n;
+  		double rad1, rad2;
+  		rectangleleft.x = Eleft.iPc.get_u() - Eleft.getA() - cornRect;
+  		rectangleleft.y = Eleft.iPc.get_v() - Eleft.getA() - cornRect;
+  		rectangleleft.height = 2*Eleft.getA() + widthRect;
+  		rectangleleft.width = 2*Eleft.getA() + widthRect;
 
-		rectangleright.x = Eright.iPc.get_u() - Eright.getA() - cornRect;
-		rectangleright.y = Eright.iPc.get_v() - Eright.getA() - cornRect;
-		rectangleright.height = 2*Eright.getA() + widthRect;
-		rectangleright.width = 2*Eright.getA() + widthRect;
+  		rectangleright.x = Eright.iPc.get_u() - Eright.getA() - cornRect;
+  		rectangleright.y = Eright.iPc.get_v() - Eright.getA() - cornRect;
+  		rectangleright.height = 2*Eright.getA() + widthRect;
+  		rectangleright.width = 2*Eright.getA() + widthRect;
 
-    p0img_left.x = Eleft.iPc.get_u();
-    p0img_left.y = Eleft.iPc.get_v();
+      p0img_left.x = Eleft.iPc.get_u();
+      p0img_left.y = Eleft.iPc.get_v();
 
-    p0img_right.x = Eright.iPc.get_u();
-    p0img_right.y = Eright.iPc.get_v();
-
-
-		vpPixelMeterConversion::convertPoint(cam1,Eleft.iPc, x1_n,y1_n);
-		vpPixelMeterConversion::convertPoint(cam2,Eright.iPc, x2_n,y2_n);
-
-		rad2 = Eright.getA();
-		rad1 = Eleft.getA();
-
-		vpHomogeneousMatrix c1Mo,c2Mo, c12Mo;
-
-	  c2Mo[2][3] = (cam2.get_px()*radius/rad2 );
-	  c2Mo[0][3] = (c2Mo[2][3]*x2_n);
-	  c2Mo[1][3] = (c2Mo[2][3]*y2_n);
-	  c1Mo[2][3] = (cam1.get_px()*radius/(rad1) );
-	  c1Mo[0][3] = (c1Mo[2][3]*x1_n);
-	  c1Mo[1][3] = (c1Mo[2][3]*y1_n);
-	  cMo = c1Mo;
-	  c12Mo = c2Mc1.inverse()*c2Mo;
-	  iter0++;
-
-	  vpHomogeneousMatrix cMor;
-	  cMor = cMo;
-	  cMor[2][3] = cMo[2][3] ;//- 0.04;
-
-	  c2Mo = c2Mc1*cMo;
-
-    p0 = makeVector(cMo[0][3], cMo[1][3],cMo[2][3] );
-    p0cam1 = makeVector(cMo[0][3]/cMo[2][3], cMo[1][3]/cMo[2][3], 0 );
-    p0cam2 = makeVector(cMo2[0][3]/cMo2[2][3], cMo2[1][3]/cMo2[2][3], 0 );
-
-		cv::Mat pnts3D(1,1,CV_64FC4);
-		cv::Mat cam0pnts(1,1,CV_64FC2);
-		cv::Mat cam1pnts(1,1,CV_64FC2);
-
-    //cout << "LEFT: " << (float)Eleft.iPc.get_u() << " " << (float)Eleft.iPc.get_v() << endl;
-    //cout << "RIGHT: " << (float)Eright.iPc.get_u() << " " << (float)Eright.iPc.get_v() << endl;
-
-		cam0pnts.at<cv::Vec2d>(0,0)[0] = (float)Eleft.iPc.get_u();
-		cam0pnts.at<cv::Vec2d>(0,0)[1] = (float)Eleft.iPc.get_v();
-
-		cam1pnts.at<cv::Vec2d>(0,0)[0] = (float)Eright.iPc.get_u();
-		cam1pnts.at<cv::Vec2d>(0,0)[1] = (float)Eright.iPc.get_v();
-
-    cv::Mat pt_set1_pt,pt_set2_pt;
-    Mat pt_3d_h(1,1,CV_32FC4);
-    vector<Point3f> pt_3d;
+      p0img_right.x = Eright.iPc.get_u();
+      p0img_right.y = Eright.iPc.get_v();
 
 
-    cv::undistortPoints(cam0pnts, pt_set1_pt, Kleft, distcoeff1);
-    cv::undistortPoints(cam1pnts, pt_set2_pt, Kright, distcoeff2);
+  		vpPixelMeterConversion::convertPoint(cam1,Eleft.iPc, x1_n,y1_n);
+  		vpPixelMeterConversion::convertPoint(cam2,Eright.iPc, x2_n,y2_n);
+
+  		rad2 = Eright.getA();
+  		rad1 = Eleft.getA();
+
+  		vpHomogeneousMatrix c1Mo,c2Mo, c12Mo;
+
+  	  c2Mo[2][3] = (cam2.get_px()*radius/rad2 );
+  	  c2Mo[0][3] = (c2Mo[2][3]*x2_n);
+  	  c2Mo[1][3] = (c2Mo[2][3]*y2_n);
+  	  c1Mo[2   ][3] = (cam1.get_px()*radius/(rad1) );
+  	  c1Mo[0][3] = (c1Mo[2][3]*x1_n);
+  	  c1Mo[1][3] = (c1Mo[2][3]*y1_n);
+  	  cMo = c1Mo;
+  	  c12Mo = c2Mc1.inverse()*c2Mo;
+  	  iter0++;
+
+  	  vpHomogeneousMatrix cMor;
+  	  cMor = cMo;
+  	  cMor[2][3] = cMo[2][3] ;//- 0.04;
+
+  	  c2Mo = c2Mc1*cMo;
+
+      p0 = makeVector(cMo[0][3], cMo[1][3],cMo[2][3] );
+      p0cam1 = makeVector(cMo[0][3]/cMo[2][3], cMo[1][3]/cMo[2][3], 0 );
+      p0cam2 = makeVector(cMo2[0][3]/cMo2[2][3], cMo2[1][3]/cMo2[2][3], 0 );
+
+  		cv::Mat pnts3D(1,1,CV_64FC4);
+  		cv::Mat cam0pnts(1,1,CV_64FC2);
+  		cv::Mat cam1pnts(1,1,CV_64FC2);
+
+      //cout << "LEFT: " << (float)Eleft.iPc.get_u() << " " << (float)Eleft.iPc.get_v() << endl;
+      //cout << "RIGHT: " << (float)Eright.iPc.get_u() << " " << (float)Eright.iPc.get_v() << endl;
+
+  		cam0pnts.at<cv::Vec2d>(0,0)[0] = (float)Eleft.iPc.get_u();
+  		cam0pnts.at<cv::Vec2d>(0,0)[1] = (float)Eleft.iPc.get_v();
+
+  		cam1pnts.at<cv::Vec2d>(0,0)[0] = (float)Eright.iPc.get_u();
+  		cam1pnts.at<cv::Vec2d>(0,0)[1] = (float)Eright.iPc.get_v();
+
+      cv::Mat pt_set1_pt,pt_set2_pt;
+      Mat pt_3d_h(1,1,CV_32FC4);
+      vector<Point3f> pt_3d;
+
+
+      cv::undistortPoints(cam0pnts, pt_set1_pt, Kleft, distcoeff1);
+      cv::undistortPoints(cam1pnts, pt_set2_pt, Kright, distcoeff2);
 
 
 
-    cv::triangulatePoints(Mat(P),Mat(P2), pt_set1_pt, pt_set2_pt, pt_3d_h);
-    cv::triangulatePoints(Kleft*Mat(P),Kright*Mat(P2),cam0pnts,cam1pnts,pnts3D);
+      cv::triangulatePoints(Mat(P),Mat(P2), pt_set1_pt, pt_set2_pt, pt_3d_h);
+      cv::triangulatePoints(Kleft*Mat(P),Kright*Mat(P2),cam0pnts,cam1pnts,pnts3D);
 
 
-    vpHomogeneousMatrix cMo0,cMo02;
-    cMo0 = cMo;
+      vpHomogeneousMatrix cMo0,cMo02;
+      cMo0 = cMo;
 
-    cMo0[0][3] = pnts3D.at<cv::Vec4d>(0,0)[0]/pnts3D.at<cv::Vec4d>(0,0)[3];
-		cMo0[1][3] = pnts3D.at<cv::Vec4d>(0,0)[1]/pnts3D.at<cv::Vec4d>(0,0)[3];
-		cMo0[2][3] = pnts3D.at<cv::Vec4d>(0,0)[2]/pnts3D.at<cv::Vec4d>(0,0)[3];
+      cMo0[0][3] = pnts3D.at<cv::Vec4d>(0,0)[0]/pnts3D.at<cv::Vec4d>(0,0)[3];
+  		cMo0[1][3] = pnts3D.at<cv::Vec4d>(0,0)[1]/pnts3D.at<cv::Vec4d>(0,0)[3];
+  		cMo0[2][3] = pnts3D.at<cv::Vec4d>(0,0)[2]/pnts3D.at<cv::Vec4d>(0,0)[3];
 
-		cMo0[0][3] = pt_3d_h.at<cv::Vec4d>(0,0)[0]/pt_3d_h.at<cv::Vec4d>(0,0)[3];
-		cMo0[1][3] = pt_3d_h.at<cv::Vec4d>(0,0)[1]/pt_3d_h.at<cv::Vec4d>(0,0)[3];
-		cMo0[2][3] = pt_3d_h.at<cv::Vec4d>(0,0)[2]/pt_3d_h.at<cv::Vec4d>(0,0)[3];
+  		cMo0[0][3] = pt_3d_h.at<cv::Vec4d>(0,0)[0]/pt_3d_h.at<cv::Vec4d>(0,0)[3];
+  		cMo0[1][3] = pt_3d_h.at<cv::Vec4d>(0,0)[1]/pt_3d_h.at<cv::Vec4d>(0,0)[3];
+  		cMo0[2][3] = pt_3d_h.at<cv::Vec4d>(0,0)[2]/pt_3d_h.at<cv::Vec4d>(0,0)[3];
 
-    //cout << "3d coordinate: " << cMo0[0][3] << " " << cMo0[1][3] << " " << cMo0[2][3] << endl;
+      //cout << "3d coordinate: " << cMo0[0][3] << " " << cMo0[1][3] << " " << cMo0[2][3] << endl;
 
-		x1_n = cMo0[0][3]/cMo0[2][3];
-		y1_n = cMo0[1][3]/cMo0[2][3];
+  		x1_n = cMo0[0][3]/cMo0[2][3];
+  		y1_n = cMo0[1][3]/cMo0[2][3];
 
-		cMo02 = c2Mc1*cMo0;
+  		cMo02 = c2Mc1*cMo0;
 
-		x2_n = cMo02[0][3]/cMo02[2][3];
-    y2_n = cMo02[1][3]/cMo02[2][3];
+  		x2_n = cMo02[0][3]/cMo02[2][3];
+      y2_n = cMo02[1][3]/cMo02[2][3];
 
-		cMo = cMo0;
-		cMo2 = cMo02;
+  		cMo = cMo0;
+  		cMo2 = cMo02;
 
-    if (Eleft.iPc.get_j() > left.cols - 30 || Eleft.iPc.get_j() < 30 || Eright.iPc.get_j() > right.cols - 30 || Eright.iPc.get_j() < 30 || Eleft.iPc.get_i() > left.rows - 30 || Eleft.iPc.get_i() < 30 || Eright.iPc.get_i() > right.rows - 30 || Eright.iPc.get_i() < 30) {
+      if (Eleft.iPc.get_j() > left.cols - 30 || Eleft.iPc.get_j() < 30 || Eright.iPc.get_j() > right.cols - 30 || Eright.iPc.get_j() < 30 || Eleft.iPc.get_i() > left.rows - 30 || Eleft.iPc.get_i() < 30 || Eright.iPc.get_i() > right.rows - 30 || Eright.iPc.get_i() < 30) {
 
-      cMo[0][3] = 0;
-      cMo[1][3] = 0;
-      cMo[2][3] = 0;
+        cMo[0][3] = 0;
+        cMo[1][3] = 0;
+        cMo[2][3] = 0;
 
-      cMo2[0][3] = 0;
-      cMo2[1][3] = 0;
-      cMo2[2][3] = 0;
+        cMo2[0][3] = 0;
+        cMo2[1][3] = 0;
+        cMo2[2][3] = 0;
+      }
+
+  		vpMeterPixelConversion::convertPoint(cam1,x1_n,y1_n,center1);
+  		vpMeterPixelConversion::convertPoint(cam2,x2_n,y2_n,center2);
+    	double rectx, recty;
+    	rectx = 0;
+    	recty = 0;
+      rectangleleft.x = Eleft.getCenter().get_u() - Eleft.getA() - cornRect;
+    	rectangleleft.y = Eleft.getCenter().get_v() - Eleft.getA() - cornRect;
+
+      if (rectangleleft.x <= 0 ) {
+        rectx = rectangleleft.x;
+        rectangleleft.x = 1;
+      }
+      if (rectangleleft.y <= 0 ) {
+        recty = rectangleleft.y;
+        rectangleleft.y = 1;
+      }
+
+      rectangleleft.height = 2*Eleft.getA() + widthRect - recty;
+      rectangleleft.width = 2*Eleft.getA() + widthRect - rectx;
+
+      if (rectangleleft.x + rectangleleft.width >=  Ileft.getWidth()) {
+        rectangleleft.width -= rectangleleft.x + rectangleleft.width -Ileft.getWidth();
+      }
+      if (rectangleleft.y + rectangleleft.height >= Ileft.getHeight() ) {
+        rectangleleft.height -= rectangleleft.y + rectangleleft.height-Ileft.getHeight();
+      }
+
+      rectangleright.x = Eright.getCenter().get_u() - Eright.getA() - cornRect;
+      rectangleright.y = Eright.getCenter().get_v() - Eright.getA() - cornRect;
+
+      if (rectangleright.x <= 0 ) {
+        rectx = rectangleright.x;
+        rectangleright.x = 1;
+      }
+      if (rectangleright.y <= 0 ) {
+        recty = rectangleright.y;
+        rectangleright.y = 1;
+      }
+
+      rectangleright.height = 2*Eright.getA() + widthRect - recty;
+      rectangleright.width = 2*Eright.getA() + widthRect - rectx;
+
+      if (rectangleright.x + rectangleright.width >=  Iright.getWidth()) {
+        rectangleright.width -= rectangleright.x + rectangleright.width -Iright.getWidth();
+      }
+
+      if (rectangleright.y + rectangleright.height >= Iright.getHeight() ) {
+        rectangleright.height -= rectangleright.y + rectangleright.height-Iright.getHeight();
+      }
+
+      //cMo_ = cMo;
+      p0 = makeVector(cMo[0][3], cMo[1][3],cMo[2][3] );
     }
-
-		vpMeterPixelConversion::convertPoint(cam1,x1_n,y1_n,center1);
-		vpMeterPixelConversion::convertPoint(cam2,x2_n,y2_n,center2);
-  	double rectx, recty;
-  	rectx = 0;
-  	recty = 0;
-    rectangleleft.x = Eleft.getCenter().get_u() - Eleft.getA() - cornRect;
-  	rectangleleft.y = Eleft.getCenter().get_v() - Eleft.getA() - cornRect;
-
-    if (rectangleleft.x <= 0 ) {
-      rectx = rectangleleft.x;
-      rectangleleft.x = 1;
+    catch ( vpException e ) {
+      cout << "Tracking exception: " << e << endl;
+      _initialized = false;
+      return false;
     }
-    if (rectangleleft.y <= 0 ) {
-      recty = rectangleleft.y;
-      rectangleleft.y = 1;
-    }
-
-    rectangleleft.height = 2*Eleft.getA() + widthRect - recty;
-    rectangleleft.width = 2*Eleft.getA() + widthRect - rectx;
-
-    if (rectangleleft.x + rectangleleft.width >=  Ileft.getWidth()) {
-      rectangleleft.width -= rectangleleft.x + rectangleleft.width -Ileft.getWidth();
-    }
-    if (rectangleleft.y + rectangleleft.height >= Ileft.getHeight() ) {
-      rectangleleft.height -= rectangleleft.y + rectangleleft.height-Ileft.getHeight();
-    }
-
-    rectangleright.x = Eright.getCenter().get_u() - Eright.getA() - cornRect;
-    rectangleright.y = Eright.getCenter().get_v() - Eright.getA() - cornRect;
-
-    if (rectangleright.x <= 0 ) {
-      rectx = rectangleright.x;
-      rectangleright.x = 1;
-    }
-    if (rectangleright.y <= 0 ) {
-      recty = rectangleright.y;
-      rectangleright.y = 1;
-    }
-
-    rectangleright.height = 2*Eright.getA() + widthRect - recty;
-    rectangleright.width = 2*Eright.getA() + widthRect - rectx;
-
-    if (rectangleright.x + rectangleright.width >=  Iright.getWidth()) {
-      rectangleright.width -= rectangleright.x + rectangleright.width -Iright.getWidth();
-    }
-
-    if (rectangleright.y + rectangleright.height >= Iright.getHeight() ) {
-      rectangleright.height -= rectangleright.y + rectangleright.height-Iright.getHeight();
-    }
-
-    //cMo_ = cMo;
-    p0 = makeVector(cMo[0][3], cMo[1][3],cMo[2][3] );
-
   }
 
   if( _disp ) {
-    imshow("lgcrop", lgcrop);
-    imshow("rgcrop", rgcrop);
-    waitKey(1);
+    //imshow("lgcrop", lgcrop);
+    //imshow("rgcrop", rgcrop);
+   // waitKey(1);
   }
 
 

@@ -12,6 +12,13 @@ int high_r_l=100;
 int high_g_l=100;
 int high_b_l=100;
 
+int low_r_or=30;
+int low_g_or=30;
+int low_b_or=30;
+int high_r_or=100;
+int high_g_or=100;
+int high_b_or=100;
+
 int low_r_r=30;
 int low_g_r=30;
 int low_b_r=30;
@@ -67,6 +74,33 @@ void on_high_b_thresh_trackbar_l(int, void *) {
     high_g_l = max(high_g_l, low_g_l+1);
     setTrackbarPos("High G", "RGB", high_g_l);
 }
+
+
+void on_low_r_thresh_trackbar_or(int, void *) {
+    low_r_or = min(high_r_or-1, low_r_or);
+    setTrackbarPos("Low R","or_inrange", low_r_or);
+}
+void on_high_r_thresh_trackbar_or(int, void *) {
+    high_r_or = max(high_r_or, low_r_or+1);
+    setTrackbarPos("High R", "or_inrange", high_r_or);
+}
+void on_low_g_thresh_trackbar_or(int, void *) {
+    low_g_or = min(high_g_or-1, low_g_or);
+    setTrackbarPos("Low G","or_inrange", low_g_or);
+}
+void on_high_g_thresh_trackbar_or(int, void *) {
+    high_g_or = max(high_g_or, low_g_or+1);
+    setTrackbarPos("High G", "or_inrange", high_g_or);
+}
+void on_low_b_thresh_trackbar_or(int, void *) {
+    low_b_or = min(high_b_or-1, low_b_or);
+    setTrackbarPos("Low B","or_inrange", low_b_or);
+}
+void on_high_b_thresh_trackbar_or(int, void *) {
+    high_g_or = max(high_g_or, low_g_or+1);
+    setTrackbarPos("High G", "or_inrange", high_g_or);
+}
+
 
 void on_low_r_thresh_trackbar_r(int, void *) {
     low_r_r = min(high_r_r-1, low_r_r);
@@ -157,6 +191,13 @@ shape_tracking::shape_tracking() {
   load_param( _high_g_l, 255, "high_g_l");
   load_param( _high_b_l, 255, "high_b_l");
 
+  load_param( _low_r_or, 0, "low_r_or");
+  load_param( _low_g_or, 0, "low_g_or");
+  load_param( _low_b_or, 0, "low_b_or");
+  load_param( _high_r_or, 0, "high_r_or");
+  load_param( _high_g_or, 255, "high_g_or");
+  load_param( _high_b_or, 255, "high_b_or");
+
   load_param( _low_r_r, 0, "low_r_r");
   load_param( _low_g_r, 0, "low_g_r");
   load_param( _low_b_r, 0, "low_b_r");
@@ -175,6 +216,7 @@ shape_tracking::shape_tracking() {
   load_param( _use_depth, false, "use_depth");
 
   load_param( _apply_roi, false, "apply_roi");
+  load_param( _set_RGB_or, false, "set_RGB_or");
 
 
   load_param( _track_orientation, false, "track_orientation");
@@ -441,7 +483,7 @@ void shape_tracking::track_ellipses() {
     createTrackbar("bth","Binary threshold", &bin_th, 255, on_thresh_trackbar );
   }
   vector<Point> translated_c;
-  Scalar color = Scalar( 0, 0, 255 );
+  Scalar color = Scalar( 0, 0, 0 );
   Point original_center_e1;
   Point original_center_e2;
 
@@ -458,6 +500,26 @@ void shape_tracking::track_ellipses() {
   vector< vector<Point> > fullc;
   Mat dst, dst_range;
 
+
+  if( _set_RGB_or ) {
+    namedWindow("or_inrange", WINDOW_NORMAL);
+    //-- Trackbars to set thresholds for RGB values
+    createTrackbar("Low R","or_inrange", &low_r_or, 255, on_low_r_thresh_trackbar_or);
+    createTrackbar("High R","or_inrange", &high_r_or, 255, on_high_r_thresh_trackbar_or);
+    createTrackbar("Low G","or_inrange", &low_g_or, 255, on_low_g_thresh_trackbar_or);
+    createTrackbar("High G","or_inrange", &high_g_or, 255, on_high_g_thresh_trackbar_or);
+    createTrackbar("Low B","or_inrange", &low_b_or, 255, on_low_b_thresh_trackbar_or);
+    createTrackbar("High B","or_inrange", &high_b_or, 255, on_high_b_thresh_trackbar_or);
+  }
+
+
+  low_r_or = _low_r_or;
+  low_g_or = _low_g_or;
+  low_b_or = _low_b_or;
+
+  high_r_or = _high_r_or;
+  high_g_or = _high_g_or;
+  high_b_or = _high_b_or;
 
   while(ros::ok()) {
 
@@ -486,107 +548,167 @@ void shape_tracking::track_ellipses() {
     original_center_e1.x = (ellipse_center.x + _off_x_l  );
     original_center_e1.y = (ellipse_center.y + _off_y_l  );
 
-    if( _track_orientation ) {
 
 
-      fullc.clear();
-      fullc.push_back(outer_ellipse);
-      Mat mask = Mat::zeros ( cropedImage.size(), cropedImage.type() );
-      drawContours( mask, fullc, 0, Scalar(255,255,255), -1, 8 );
-      cropedImage.copyTo(dst, mask );
+    //if( _track_orientation ) {
 
-      //imshow("dst", dst);
-      //waitKey(1);
+      if( _use_depth ) {
 
-      inRange(dst, Scalar(0, 0, 254), Scalar(255, 231, 255), dst_range);
-      Mat element = getStructuringElement( _dilation_elem, Size( 2*_dilation_size + 1, 2*_dilation_size+1 ), Point( _dilation_size, _dilation_size ));
-      dilate( dst_range, dst_range, element );
-      //imshow("cropedImage", dst_range);
-      //waitKey(1);
+        cx = _cam1_cameraMatrix->at<double>(0,2);
+        cy = _cam1_cameraMatrix->at<double>(1,2);
+        fx_inv = 1.0 / _cam1_cameraMatrix->at<double>(0,0);
+        fy_inv = 1.0 / _cam1_cameraMatrix->at<double>(1,1);
+        zd_c1 = _depth_src.at<float>(original_center_e1.y,original_center_e1.x);
 
-      vector<vector<Point> > o_contours;
-      findContours( dst_range, o_contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+        cx_c1 = (zd_c1*0.001) * ( (original_center_e1.x - cx) * fx_inv );
+        cy_c1 = (zd_c1*0.001) * ( (original_center_e1.y - cy) * fy_inv );
+        cz_c1 = zd_c1*0.001;
 
-      dst.release();
-      mask.release();
+			} //Get center in 3d frame
 
-      if( o_contours.size() == 0 ){
-        cout << "[Warning!] Impossible to find orientation" << endl;
-        original_center_e2.x = -1;
-        original_center_e2.y = -1;
-      }
+			Vector<3> circle_center = makeVector( cx_c1, cy_c1, cz_c1 );
+
+      if( !_track_orientation ) {
+        if( _show_img_elaboration ) {
+          translated_c.clear();
+          Point conts;
+          for(int i=0; i<outer_ellipse.size(); i++) {
+            conts.x = outer_ellipse[i].x + _off_x_l ;
+            conts.y = outer_ellipse[i].y + _off_y_l;
+            translated_c.push_back(conts);
+          }
+          contours.clear();
+          contours.push_back( translated_c );
+          drawContours( img, contours, 0, color, 2, 8 );
+
+          circle( img, original_center_e1, 2, color, 2, 8 );
+
+          if( !img.empty())
+            imshow( "img", img );
+          waitKey(1);
+
+        }
+      } //No orientation tracking, work done!
       else {
 
-        int max_c = -1000;
-        int ellipse_candidate_c = -1;
-        RotatedRect minEllipse;
+        fullc.clear();
+        fullc.push_back(outer_ellipse);
+        Mat mask = Mat::zeros ( cropedImage.size(), cropedImage.type() );
+        drawContours( mask, fullc, 0, Scalar(255,255,255), -1, 8 );
+        cropedImage.copyTo(dst, mask );
 
-        vector<Moments> mu(o_contours.size() );
-        for(int cc=0; cc<o_contours.size(); cc++ ) {
-          mu[cc] = moments( o_contours[cc], false );
-          if( max_c < contourArea(o_contours[cc])) {
-            max_c = contourArea(o_contours[cc]);
-            ellipse_candidate_c = cc;
-          } //Get better contour to describe our ellipse
+
+        //imshow("dst", dst);
+        //waitKey(1);
+        _low_r_or = low_r_or;
+        _low_g_or = low_g_or;
+        _low_b_or = low_b_or;
+
+        _high_r_or = high_r_or;
+        _high_g_or = high_g_or;
+        _high_b_or = high_b_or;
+        //inRange(dst, Scalar(0, 0, 254), Scalar(255, 231, 255), dst_range);
+        inRange( dst, Scalar( _low_b_or, _low_g_or, _low_r_or), Scalar( _high_b_or, _high_g_or, _high_r_or), dst_range );
+        vector<vector<Point> > o_contours;
+
+        if( _set_RGB_or ) {
+          imshow("or_inrange", dst_range);
+          waitKey(1);
+
+          imshow("pizza", dst);
+          waitKey(1);
+
+
         }
+        else {
 
-        if( ellipse_candidate_c != -1 ) {
-          if( o_contours[ellipse_candidate_c].size() < 5 ) {
-            cout << "[Warning!] less then 5 point in the found ellipse" << endl;
+          Mat element = getStructuringElement( _dilation_elem, Size( 2*_dilation_size + 1, 2*_dilation_size+1 ), Point( _dilation_size, _dilation_size ));
+          dilate( dst_range, dst_range, element );
+          findContours( dst_range, o_contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+
+          dst.release();
+          mask.release();
+
+          if( o_contours.size() == 0 ){
+            cout << "[Warning!] Impossible to find orientation" << endl;
             original_center_e2.x = -1;
             original_center_e2.y = -1;
           }
           else {
-            minEllipse = fitEllipse( Mat(o_contours[ellipse_candidate_c]) );
-            circle( img, Point( minEllipse.center.x + _off_x_l, minEllipse.center.y + _off_y_l)  , 2, color, 2, 8 );
 
-            original_center_e2.x = minEllipse.center.x + _off_x_l;
-            original_center_e2.y = minEllipse.center.y + _off_y_l;
+            int max_c = -1000;
+            int ellipse_candidate_c = -1;
+            RotatedRect minEllipse;
+            vector<Moments> mu(o_contours.size() );
+            int orientation_index = -1;
+  				  Scalar color2 = Scalar( 0, 255, 0 );
+  				  Scalar color3 = Scalar( 230, 0, 0 );
+            circle( img, Point( original_center_e1.x, original_center_e1.y)  , 2, color3, 10, 8 );
+
+            float min_dist = 1000;
+            for(int cc=0; cc<o_contours.size(); cc++ ) {
+              mu[cc] = moments( o_contours[cc], false );
+
+              stringstream ss;
+              ss << cc;
+              minEllipse = fitEllipse( Mat(o_contours[cc]) );
+              Point2f a(minEllipse.center.x + _off_x_l, minEllipse.center.y + _off_y_l );
+              Point2f b(original_center_e1.x, original_center_e1.y);
+
+              if( cv::norm(a-b) < min_dist ) {
+                min_dist = cv::norm(a-b);
+                orientation_index = cc;
+              }
+            }
+
+            if( orientation_index != -1 ) {
+              minEllipse = fitEllipse( Mat(o_contours[orientation_index]) );
+              Point2f a(minEllipse.center.x + _off_x_l, minEllipse.center.y + _off_y_l );
+              circle( img,a  , 2, color2, 2, 8 );
+
+              original_center_e2.x = minEllipse.center.x + _off_x_l;
+              original_center_e2.y = minEllipse.center.y + _off_y_l;
+
+            }
           }
         }
-      }
-    }
 
-    if( _show_img_elaboration ) {
-      translated_c.clear();
-      Point conts;
-      for(int i=0; i<outer_ellipse.size(); i++) {
-        conts.x = outer_ellipse[i].x + _off_x_l ;
-        conts.y = outer_ellipse[i].y + _off_y_l;
-        translated_c.push_back(conts);
-      }
-      contours.clear();
-      contours.push_back( translated_c );
-      drawContours( img, contours, 0, color, 2, 8 );
+        if( _show_img_elaboration ) {
+          translated_c.clear();
+          Point conts;
+          for(int i=0; i<outer_ellipse.size(); i++) {
+            conts.x = outer_ellipse[i].x + _off_x_l ;
+            conts.y = outer_ellipse[i].y + _off_y_l;
+            translated_c.push_back(conts);
+          }
+          contours.clear();
+          contours.push_back( translated_c );
+          drawContours( img, contours, 0, color, 2, 8 );
 
-      circle( img, original_center_e1, 2, color, 2, 8 );
-      if( _track_orientation )
-        circle( img, original_center_e2, 2, color, 2, 8 );
+          circle( img, original_center_e1, 2, color, 2, 8 );
+          if( _track_orientation )
+            circle( img, original_center_e2, 2, color, 2, 8 );
 
-      if( !img.empty())
-        imshow( "img", img );
-      waitKey(1);
+          if( !img.empty())
+            imshow( "img", img );
+          waitKey(1);
 
-    }
+        }
 
-    if( _use_depth ) {
-      cx = _cam1_cameraMatrix->at<double>(0,2);
-      cy = _cam1_cameraMatrix->at<double>(1,2);
-      fx_inv = 1.0 / _cam1_cameraMatrix->at<double>(0,0);
-      fy_inv = 1.0 / _cam1_cameraMatrix->at<double>(1,1);
-      zd_c1 = _depth_src.at<float>(original_center_e1.y,original_center_e1.x);
 
-      cx_c1 = (zd_c1*0.001) * ( (original_center_e1.x - cx) * fx_inv );
-      cy_c1 = (zd_c1*0.001) * ( (original_center_e1.y - cy) * fy_inv );
-      cz_c1 = zd_c1*0.001;
+        if( _use_depth ) {
+          if(original_center_e2.x != -1 && original_center_e2.y != -1 ) {
+            zd_c2 = _depth_src.at<float>(original_center_e2.y,original_center_e2.x);
+            cx_c2 = (zd_c2*0.001) * ( (original_center_e2.x - cx) * fx_inv );
+            cy_c2 = (zd_c2*0.001) * ( (original_center_e2.y - cy) * fy_inv );
+            cz_c2 = zd_c2*0.001;
 
-      if( _track_orientation ) {
-        if(original_center_e2.x != -1 && original_center_e2.y != -1 ) {
-          zd_c2 = _depth_src.at<float>(original_center_e2.y,original_center_e2.x);
-          cx_c2 = (zd_c2*0.001) * ( (original_center_e2.x - cx) * fx_inv );
-          cy_c2 = (zd_c2*0.001) * ( (original_center_e2.y - cy) * fy_inv );
-          cz_c2 = zd_c2*0.001;
-
+          }
+          else {
+            cx_c2 = -1;
+            cy_c2 = -1;
+            cz_c2 = -1;
+          }
         }
         else {
           cx_c2 = -1;
@@ -594,36 +716,30 @@ void shape_tracking::track_ellipses() {
           cz_c2 = -1;
         }
       }
-      else {
-        cx_c2 = -1;
-        cy_c2 = -1;
-        cz_c2 = -1;
-      }
+
+
+
+      //---output
+      output.p1.x = cx_c1;
+      output.p1.y = cy_c1;
+      output.p1.z = cz_c1;
+      output.p2.x = cx_c2;
+      output.p2.y = cy_c2;
+      output.p2.z = cz_c2;
+
+      cout << "P0: [" << output.p1.x << " " << output.p1.y << " " << output.p1.z << "]" << endl;
+      cout << "P1: [" << output.p2.x << " " << output.p2.y << " " << output.p2.z << "]" << endl;
+      //cout << endl;
+
+      int w = write( _output_data_socket, &output, sizeof(output));
+      //---
+
+
+
+
+
+      r.sleep();
     }
-    else {
-      //TODO img2space
-    }
-
-    output.p1.x = cx_c1;
-    output.p1.y = cy_c1;
-    output.p1.z = cz_c1;
-
-    output.p2.x = cx_c2;
-    output.p2.y = cy_c2;
-    output.p2.z = cz_c2;
-
-    //cout << "PX p0: " << original_center_e1.x << " " << original_center_e1.y << endl;
-    //cout << "PX p1: " << original_center_e2.x << " " << original_center_e2.y << endl;
-
-    //cout << "P0: [" << output.p1.x << " " << output.p1.y << " " << output.p1.z << "]" << endl;
-    //cout << "P1: [" << output.p2.x << " " << output.p2.y << " " << output.p2.z << "]" << endl;
-    //cout << endl;
-
-    int w = write( _output_data_socket, &output, sizeof(output));
-    //cout << "written: " << w << endl;
-
-    r.sleep();
-  }
 
 }
 
@@ -1063,6 +1179,7 @@ void shape_tracking::track_sphere() {
   point_struct ps;
   bool init = true;
   bool found_c = false;
+  int lost_mis = 0;
   while(ros::ok()) {
     left = _src_l;
     right = _src_r;
@@ -1070,16 +1187,10 @@ void shape_tracking::track_sphere() {
     Mat cleft = left(Rect( _off_x_l, _off_y_l, _rect_w_l, _rect_h_l));
     Mat cright = right(Rect( _off_x_r, _off_y_r, _rect_w_r, _rect_h_r));
 
-    //Track
-    //cout << "TRACK: "  << sst.track(init, left, right, p0, p0cam1, p0cam2, p_img_left, p_img_right ) << endl;
-
-
     found_c = sst.track(init, left, right, p0, p0cam1, p0cam2, p_img_left, p_img_right );
-    if( !found_c )
-     init = true;
-    cout << "Init: " << init << endl;
 
-    init = false;
+
+
     Scalar color = Scalar( 0, 0, 255 );
 
     if(_show_img_elaboration) {
@@ -1089,20 +1200,24 @@ void shape_tracking::track_sphere() {
       waitKey(1);
     }
 
+    if( found_c ) {
+      ps.x = p0[0];
+      ps.y = p0[1];
+      ps.z = p0[2];
+      write( _output_data_socket, &ps, sizeof(ps));
+    }
+    else {
+      lost_mis++;
+      if( lost_mis > 5 ) {
+        ps.x = ps.y = ps.z = 0.0;
+        ps.x = p0[0];
+        ps.y = p0[1];
+        ps.z = p0[2];
+        write( _output_data_socket, &ps, sizeof(ps));
+      }
+    }
 
-  //  cout << "Points: " << p0[0] << " " << p0[1] << " " << p0[2]<< endl;
 
-
-    /*
-    sp_c.x = p0[0];
-    sp_c.y = p0[1];
-    sp_c.z = p0[2];
-    _sphere_pub.publish( sp_c );
-    */
-    ps.x = p0[0];
-    ps.y = p0[1];
-    ps.z = p0[2];
-    write( _output_data_socket, &ps, sizeof(ps));
 
 
     r.sleep();

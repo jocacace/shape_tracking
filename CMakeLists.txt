@@ -3,6 +3,7 @@ project(shape_tracking)
 
 add_compile_options(-std=c++11)
 find_package(VISP REQUIRED)
+find_package(OpenCV REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   image_transport  
@@ -30,4 +31,4 @@ include_directories(
 )
 
 add_executable(shape_tracking src/shape_tracking.cpp src/camera_calibration.cpp ${TRACKING_SRC})
-target_link_libraries(shape_tracking ${catkin_LIBRARIES} ${VISP_LIBRARIES})
+target_link_libraries(shape_tracking ${catkin_LIBRARIES} ${VISP_LIBRARIES} opencv_imgproc opencv_highgui)

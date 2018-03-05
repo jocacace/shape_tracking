@@ -124,6 +124,13 @@ class shape_tracking {
     int _high_g_l;
     int _high_b_l;
 
+    int _low_r_or;
+    int _low_g_or;
+    int _low_b_or;
+    int _high_r_or;
+    int _high_g_or;
+    int _high_b_or;
+
     int _low_r_r;
     int _low_g_r;
     int _low_b_r;
@@ -141,6 +148,7 @@ class shape_tracking {
     bool _show_img_elaboration;
     bool _set_dilation;
     bool _set_RGB;
+    bool _set_RGB_or;
     bool _set_th;
     bool _set_roi;
     bool _stereo_cam;
